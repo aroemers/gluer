@@ -28,10 +28,55 @@
   (format "%s:%s %s" file-name line-nr message))
 
 
-;;; Checking functions.
+;;; Adapter resolution functions.
+
+(defn eligible-adapters
+  [from-name to-name adapter-library]
+  (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
+        from-types-all (apply union from-types-lvld)]
+    (->> adapter-library
+      (filter #(not (= from-types-all 
+                       (difference from-types-all 
+                                   (:adapts-from (second %))))))
+      (filter #((apply union (:adapts-to (second %))) to-name)))))
+
+(defn- closest-adapters
+  [from-name to-name eligible]
+    (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
+          closest-from (loop [depth 0]
+                         (let [from-types-lvl (nth from-types-lvld depth)
+                               result (filter #(not (= from-types-lvl 
+                                                       (difference from-types-lvl
+                                                                   (:adapts-from (second %))))) eligible)]
+                           (if (empty? result) (recur (inc depth)) result)))]
+      (if (= 1 (count closest-from))
+        closest-from
+        (loop [depth 0]
+          (let [result (filter #((nth (:adapts-to (second %)) depth) to-name) closest-from)]
+            (if (empty? result) (recur (inc depth)) result))))))
+
+(defn get-adapter-for
+  [from-name to-name adapter-library]
+  (let [eligible (eligible-adapters from-name to-name adapter-library)]
+    (cond 
+      (empty? eligible) 
+        {:error (format no-adapter-found-error from-name to-name)}
+      (= 1 (count eligible)) 
+        {:result (ffirst eligible)}
+      :otherwise
+        (let [closest (closest-adapters from-name to-name eligible)]
+          (if (= 1 (count closest)) 
+            {:result (ffirst closest)}
+            {:error (format resolution-conflict-error from-name to-name 
+                            (apply str (interpose ", " (map first closest))))})))))
+
+
+;;; Adapter checking functions.
 
 (defn check-adapter-library
   [adapter-library])
+
+;;; Gluer specification checking functions.
 
 (defn- check-using
   [using])
@@ -89,7 +134,6 @@
   [valid-files adapter-library]
   (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
 
-
 (defn check-gluer-files
   "Given the parse results of the gluer files (as returned by 
   `gluer.resources/parse-gluer-files'), this function checks for warnings and 
@@ -100,46 +144,3 @@
         errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)
         valid-check-result (check-valid-files valid adapter-library)]
     (update-in valid-check-result [:errors] concat errors)))
-
-
-;;; Adapter resolution functions.
-
-(defn eligible-adapters
-  [from-name to-name adapter-library]
-  (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
-        from-types-all (apply union from-types-lvld)]
-    (->> adapter-library
-      (filter #(not (= from-types-all 
-                       (difference from-types-all 
-                                   (:adapts-from (second %))))))
-      (filter #((apply union (:adapts-to (second %))) to-name)))))
-
-(defn- closest-adapters
-  [from-name to-name eligible]
-    (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
-          closest-from (loop [depth 0]
-                         (let [from-types-lvl (nth from-types-lvld depth)
-                               result (filter #(not (= from-types-lvl 
-                                                       (difference from-types-lvl
-                                                                   (:adapts-from (second %))))) eligible)]
-                           (if (empty? result) (recur (inc depth)) result)))]
-      (if (= 1 (count closest-from))
-        closest-from
-        (loop [depth 0]
-          (let [result (filter #((nth (:adapts-to (second %)) depth) to-name) closest-from)]
-            (if (empty? result) (recur (inc depth)) result))))))
-
-(defn get-adapter-for
-  [from-name to-name adapter-library]
-  (let [eligible (eligible-adapters from-name to-name adapter-library)]
-    (cond 
-      (empty? eligible) 
-        {:error (format no-adapter-found-error from-name to-name)}
-      (= 1 (count eligible)) 
-        {:result (ffirst eligible)}
-      :otherwise
-        (let [closest (closest-adapters from-name to-name eligible)]
-          (if (= 1 (count closest)) 
-            {:result (ffirst closest)}
-            {:error (format resolution-conflict-error from-name to-name 
-                            (apply str (interpose ", " (map first closest))))})))))
