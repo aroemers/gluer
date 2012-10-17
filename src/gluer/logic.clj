@@ -12,21 +12,71 @@
             [gluer.clauses]
             [gluer.logging]))
 
+;;; Issue messages.
+
+(def not-eligible-error 
+  "Adapter %s is not eligible for adapting %s to %s.")
+
+(def no-adapter-found-error
+  "No suitable Adapter found for adapting %s to %s.")
+
+(def resolution-conflict-error
+  "Resolution conflict for adapting %s to %s. Eligible adapters are %s")
+
+(defn format-issue
+  [message file-name line-nr]
+  (format "%s:%s %s" file-name line-nr message))
+
+
 ;;; Checking functions.
 
 (defn check-adapter-library
   [adapter-library])
 
+(defn- check-using
+  [using])
+
 (defn- check-association
+  "This function checks a single association. It checks the individual clauses
+  and, if no issues were found, continues to check the whole association 
+  regarding finding a suitable adapter. The functions returns a map in the
+  following form:
+
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
   [association file-name adapter-library]
-  (let [check-where-result (check-where association)
-        check-what-result (check-what association)]
-    (if (and (empty? check-where-result) (empty? check-where-result))
-      (let [where-type (type-of-where (:where association))
-            what-type (type-of-what (:what association))
-            using (:using association)]
-        )
-      )))
+  ;; Retrieve data and perform clause checks.
+  (let [where (:where association)
+        what (:what association)
+        using (:using association)
+        check-where-result (check-where association)
+        check-what-result (check-what association)
+        check-using-result (and using (check-using using))]
+    (if (or check-where-result check-where-result check-using-result)
+      ;; Some errors during clause checks, report them.
+      {:errors (concat (when check-where-result 
+                          [(format-issue check-where-result file-name (:line-nr where))])
+                       (when check-what-result 
+                          [(format-issue check-what-result file-name (:line-nr what))])
+                       (when check-using-result 
+                          [(format-issue check-using-result file-name (:line-nr using))]))}
+      ;; No errors during clause checks, check resolution.
+      (let [where-type (type-of-where where)
+            what-type (type-of-what (:what association))]
+        (if using
+          ;; Using keyword specified, check if it is eligible.
+          (let [eligible-names (->> (eligible-adapters what-type where-type adapter-library)
+                                    (map first)
+                                    set)]
+            (when-not (eligible-names (:word using))
+              {:errors (format-issue (format not-eligible-error (:word using) what-type where-type)
+                                     file-name (:line-nr using))}))
+          ;; No using keyword, try to find a suitable adapter.
+          (let [{:keys [result warning error]} (get-adapter-for what-type where-type adapter-library)]
+            {:errors (when error [(format-issue error file-name (:line-nr where))])
+             :warnings (when warning [(format-issue warning file-name (:line-nr where))])}))))))
 
 (defn- check-valid-file
   [valid-file adapter-library]
@@ -84,13 +134,12 @@
   (let [eligible (eligible-adapters from-name to-name adapter-library)]
     (cond 
       (empty? eligible) 
-        {:error (str "No suitable Adapter found for " from-name " to " to-name ".")}
+        {:error (format no-adapter-found-error from-name to-name)}
       (= 1 (count eligible)) 
         {:result (ffirst eligible)}
       :otherwise
         (let [closest (closest-adapters from-name to-name eligible)]
           (if (= 1 (count closest)) 
             {:result (ffirst closest)}
-            {:error (apply str "Resolution conflict for " from-name " to " 
-                           to-name ". Eligible adapters are "
-                           (interpose ", " (map first closest)))})))))
+            {:error (format resolution-conflict-error from-name to-name 
+                            (apply str (interpose ", " (map first closest))))})))))
