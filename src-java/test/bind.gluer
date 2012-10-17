@@ -1,0 +1,5 @@
+associate field test.Main.a 			with new 	test.modelb.B
+
+associate field test.Main.superA 		with call 	test.modelb.ModelFactory.get()
+
+associate field test.Main.superSuperA	with single	test.modelb.SubSubB 			using test.adapter.BtoA
