@@ -58,10 +58,9 @@
 (defn- do-check ;--- This do-check approach could also be solved using monads.
   "This function can be wrapped around another function. If the returned value
   of that function is a map, it checks whether it contains a :warnings key 
-  and/or an :errors key. In both cases, the corresponding values are displayed,
-  if  
-  The values can be collections. In case an :errors key is found, it also throws 
-  an InterruptedException."
+  and/or an :errors key. In both cases, the corresponding values are displayed.
+  The values can be collections. In case an :errors key is found and it is not
+  empty, it also throws an InterruptedException."
   [value]
   (let [warnings (:warnings value)
         errors (:errors value)]
