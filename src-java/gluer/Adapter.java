@@ -6,8 +6,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Indicates that the annotated method is a test method.
- * This annotation should be used only on parameterless static methods.
+ * Indicates that the annotated class is an Adapter.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
