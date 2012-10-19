@@ -84,7 +84,7 @@
           parsed-files (r/parse-gluer-files gluer-file-names)
           _   (log-verbose "Parsed .gluer files:" parsed-files)
           _   (log-verbose "Checking parsed .gluer files data...")
-          _ (do-check (l/check-gluer-files parsed-files))
+          _ (do-check (l/check-gluer-files parsed-files adapter-library))
           _   (log-verbose "Done checking.")]
       (println "No errors."))
     (catch InterruptedException ex 

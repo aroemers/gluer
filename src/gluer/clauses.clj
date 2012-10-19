@@ -49,6 +49,10 @@
     (when-not (re-matches #"((?:\w+\.)+)(\w+)" word)
       (str "The 'new' clause on line " line-nr " is not a valid class name."))))
 
+(defmethod type-of-what :what-clause-new
+  [what-clause]
+  (get-in what-clause [:what-clause-new :class :word]))
+
 (defmethod generate-what :what-clause-new
   [association]
   (let [result (str "new " (get-in association [:what :what-clause-new :class :word]) "()")]
@@ -61,6 +65,16 @@
 (defmethod check-what :what-clause-call
   [association])
 
+(defmethod type-of-what :what-clause-call
+  [what-clause]
+  (let [what (get-in what-clause [:what-clause-call :method :word])
+        matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
+        class-name (apply str (butlast (second matched)))
+        method-name (nth matched 3)
+        ctclass (r/class-by-name class-name)
+        method (first (filter #(= (.getName %) method-name) (.getMethods ctclass)))]
+    (.getName (.getReturnType method)))) 
+
 (defmethod generate-what :what-clause-call
   [association]
   (get-in association [:what :what-clause-call :method :word]))
@@ -70,6 +84,10 @@
 
 (defmethod check-what :what-clause-single
   [association])
+
+(defmethod type-of-what :what-clause-single
+  [what-clause]
+  (get-in what-clause [:what-clause-single :class :word]))
 
 (defmethod generate-what :what-clause-single
   [association]
@@ -85,12 +103,6 @@
     (when-not (re-matches #"((?:\w+\.)+)(\w+)" word)
       (str "The 'field' clause in line " line-nr " is not a valid field name."))))
 
-(defmethod transforms-classes :where-clause-field
-  [association]
-  (let [where (get-in association [:where :where-clause-field :field :word])
-        matched (re-matches #"((?:\w+\.)+)(\w+)" where)]
-    #{(apply str (butlast (second matched)))}))
-
 (defmethod type-of-where :where-clause-field
   [where-clause]
   (let [where (get-in where-clause [:where-clause-field :field :word])
@@ -100,6 +112,12 @@
         ctclass (r/class-by-name class-name)
         field (.getDeclaredField ctclass field-name)]
     (.getName (.getType field))))
+
+(defmethod transforms-classes :where-clause-field
+  [association]
+  (let [where (get-in association [:where :where-clause-field :field :word])
+        matched (re-matches #"((?:\w+\.)+)(\w+)" where)]
+    #{(apply str (butlast (second matched)))}))
 
 (defmethod inject-where :where-clause-field
   [where-clause ctclass retrieval-code]

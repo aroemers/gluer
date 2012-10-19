@@ -77,10 +77,33 @@
                             (apply str (interpose ", " (map first closest))))})))))
 
 
+;;; Checking utilities.
+
+(defn- depth-first-search ;--- Move this to a utility namespace?
+  "Performs a depth-first-search in the (possibly nested) collection 'item' and 
+  returns the first item that is true for the supplied predicate 'pred'."
+  [pred item]
+  (if (pred item) 
+    item
+    (when (and (coll? item) (first item))
+      (loop [coll item]
+        (if-let [result (depth-first-search pred (first coll))]
+          result
+          (when (not (empty? coll)) 
+            (recur (rest coll))))))))
+
+(defn- line-nr
+  "Retrieve the line number of the supplied node, based on a (possibly nested)
+  terminal."
+  [node]
+  (:line-nr (depth-first-search :line-nr node)))
+
+
 ;;; Adapter checking functions.
 
 (defn check-adapter-library
   [adapter-library])
+
 
 ;;; Gluer specification checking functions.
 
@@ -88,10 +111,11 @@
   "Checks whether the class name in 'using' is an Adapter (or exists at all).
   If all is fine, nil is returned, otherwise an error messag is returned."
   [using adapter-library]
-  (when-not (adapter-library using)
-    (if (r/class-by-name using)
-      (format not-adapter-error using)
-      (format not-found-error using))))
+  (let [adapter-name (get-in using [:class :word])]
+    (when-not (adapter-library adapter-name)
+      (if (r/class-by-name adapter-name)
+        (format not-adapter-error adapter-name)
+        (format not-found-error adapter-name)))))
 
 (defn- check-association
   "This function checks a single association. It checks the individual clauses
@@ -114,26 +138,27 @@
     (if (or check-where-result check-where-result check-using-result)
       ;; Some errors during clause checks, report them.
       {:errors (concat (when check-where-result 
-                          [(format-issue check-where-result file-name (:line-nr where))])
+                          [(format-issue check-where-result file-name (line-nr where))])
                        (when check-what-result 
-                          [(format-issue check-what-result file-name (:line-nr what))])
+                          [(format-issue check-what-result file-name (line-nr what))])
                        (when check-using-result 
-                          [(format-issue check-using-result file-name (:line-nr using))]))}
+                          [(format-issue check-using-result file-name (line-nr using))]))}
       ;; No errors during clause checks, check resolution.
       (let [where-type (type-of-where where)
             what-type (type-of-what (:what association))]
         (if using
           ;; Using keyword specified, check if it is eligible.
-          (let [eligible-names (->> (eligible-adapters what-type where-type adapter-library)
+          (let [adapter-name (get-in using [:class :word])
+                eligible-names (->> (eligible-adapters what-type where-type adapter-library)
                                     (map first)
                                     set)]
-            (when-not (eligible-names (:word using))
-              {:errors (format-issue (format not-eligible-error (:word using) what-type where-type)
-                                     file-name (:line-nr using))}))
+            (when-not (eligible-names adapter-name)
+              {:errors [(format-issue (format not-eligible-error adapter-name what-type where-type)
+                                     file-name (line-nr using))]}))
           ;; No using keyword, try to find a suitable adapter.
           (let [{:keys [result warning error]} (get-adapter-for what-type where-type adapter-library)]
-            {:errors (when error [(format-issue error file-name (:line-nr where))])
-             :warnings (when warning [(format-issue warning file-name (:line-nr where))])}))))))
+            {:errors (when error [(format-issue error file-name (line-nr where))])
+             :warnings (when warning [(format-issue warning file-name (line-nr where))])}))))))
 
 (defn- check-valid-file
   [valid-file adapter-library]
