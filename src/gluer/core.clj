@@ -2,8 +2,8 @@
 ;;;; Author:  Arnout Roemers
 ;;;;
 ;;;; The functions in this namespace connects the various checking functions
-;;;; available in the `gluer.logic' and `gluer.clauses' namespaces, as to report
-;;;; errors and/or warnings to the user.
+;;;; available in the `gluer.logic' namespace, as to report validation errors 
+;;;; and/or warnings to the user.
 
 (ns gluer.core
   (:require [gluer.logic :as l]

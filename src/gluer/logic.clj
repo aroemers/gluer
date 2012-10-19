@@ -23,6 +23,12 @@
 (def resolution-conflict-error
   "Resolution conflict for adapting %s to %s. Eligible adapters are %s")
 
+(def not-found-error
+  "Adapter %s is not found. Make sure it is spelled correctly and is in the classpath.")
+
+(def not-adapter-error
+  "Class %s is not an Adapter. Make sure it is annotated as such.")
+
 (defn format-issue
   [message file-name line-nr]
   (format "%s:%s %s" file-name line-nr message))
@@ -79,7 +85,13 @@
 ;;; Gluer specification checking functions.
 
 (defn- check-using
-  [using])
+  "Checks whether the class name in 'using' is an Adapter (or exists at all).
+  If all is fine, nil is returned, otherwise an error messag is returned."
+  [using adapter-library]
+  (when-not (adapter-library using)
+    (if (r/class-by-name using)
+      (format not-adapter-error using)
+      (format not-found-error using))))
 
 (defn- check-association
   "This function checks a single association. It checks the individual clauses
@@ -98,7 +110,7 @@
         using (:using association)
         check-where-result (check-where association)
         check-what-result (check-what association)
-        check-using-result (and using (check-using using))]
+        check-using-result (and using (check-using using adapter-library))]
     (if (or check-where-result check-where-result check-using-result)
       ;; Some errors during clause checks, report them.
       {:errors (concat (when check-where-result 
