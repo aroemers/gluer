@@ -111,7 +111,13 @@
 ;;; The 'single' what clause.
 
 (defmethod check-what :what-clause-single
-  [association])
+  [association]
+  (let [class-name (get-in association [:what :what-clause-single :class :word])]
+    (if-let [ctclass (r/class-by-name class-name)]
+      (let [constructors (.getConstructors ctclass)]
+        (when (empty? (filter #(= 0 (count (.getParameterTypes %))) constructors))
+          (format "Class %s in `single' clause requires a no-argument constructor.")))
+      (format "Class %s in `single' clause not found. Please check the name or classpath." class-name))))
 
 (defmethod type-of-what :what-clause-single
   [what-clause]
