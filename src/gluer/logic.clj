@@ -29,6 +29,18 @@
 (def not-adapter-error
   "Class %s is not an Adapter. Make sure it is annotated as such.")
 
+(def adapts-to-nothing-error
+  "Adapter %s does not extend or implement anything.")
+
+(def adapts-from-nothing-error
+  "Adapter %s does not have any single-argument constructors.")
+
+(def adapter-not-public
+  "Adapter %s is not declared public.")
+
+(def adapter-not-statically-accesible
+  "Adapter %s is not statically accessible. Make sure it is an outer class, or a static inner class.")
+
 (defn format-issue
   [message file-name line-nr]
   (format "%s:%s %s" file-name line-nr message))
@@ -37,6 +49,9 @@
 ;;; Adapter resolution functions.
 
 (defn eligible-adapters
+  "Based on the from-name type and to-name type and the adapter library, this
+  function returns the adapters that are applicable concerning these types. The
+  return value is a filtered adapter library."
   [from-name to-name adapter-library]
   (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
         from-types-all (apply union from-types-lvld)]
@@ -47,6 +62,10 @@
       (filter #((apply union (:adapts-to (second %))) to-name)))))
 
 (defn- closest-adapters
+  "Based on the from-name type and to-name type and the eligible adapters, this 
+  function returns the adapter(s) that are closest. Closest here means adapter
+  that have an `adapts-from' closest to the from-name, and have an `adapts-to' 
+  closest to to-name. The returned value is a filtered eligible adapter library."
   [from-name to-name eligible]
     (let [from-types-lvld (cons #{from-name} (r/leveled-supertypes-of from-name))
           closest-from (loop [depth 0]
@@ -62,6 +81,12 @@
             (if (empty? result) (recur (inc depth)) result))))))
 
 (defn get-adapter-for
+  "Given a fully qualified type `from-name', and a fully qualified type name 
+  `to-name', and an adapter library, an adapter name is returned that is eligible
+  and closest to the supplied types. See `eligible-adapters' and `closest-adapters'
+  for more info on this. The adapter name is return in a map with key :result.
+  If no suitable adapter is found, or a resolution error occured, the map 
+  contain an :error key."
   [from-name to-name adapter-library]
   (let [eligible (eligible-adapters from-name to-name adapter-library)]
     (cond 
@@ -102,7 +127,22 @@
 ;;; Adapter checking functions.
 
 (defn check-adapter-library
-  [adapter-library])
+  "This function checks the adapter library for consistency. A map is returned,
+  with possibly a :warnings key and/or an :errors key. The values of those keys
+  consist of (possibly empty) sequences."
+  [adapter-library]
+  (let [result {}]
+    (doseq [[name data] adapter-library]
+      (let [ctclass (r/class-by-name name)]
+        (when (empty? (:adapts-to data)) 
+          (update-in result [:errors] conj (format adapts-to-nothing-error name)))
+        (when (empty? (:adapts-from data))
+          (update-in result [:errors] conj (format adapts-from-nothing-error name)))
+        (when (not (r/public? ctclass)
+          (update-in result [:errors] conj (format adapter-not-public name)))
+        (when (and (r/inner? ctclass)) ;--- TODO: public static inner classes should be allowed.
+          (update-in result [:errors] conj (format adapter-not-statically-accesible name)))
+        result)))))
 
 
 ;;; Gluer specification checking functions.
@@ -167,7 +207,7 @@
     (reduce (partial merge-with concat) 
             (map #(check-association % file-name adapter-library) associations))))
 
-(defn- check-valid-files
+(defn- check-valid-files ;--- TODO: public static inner classes should be allowed.files
   [valid-files adapter-library]
   (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
 

@@ -1,5 +1,13 @@
+;;;; Summary: The namespace that generates the gluer.Runtime class.
+;;;; Author:  Arnout Roemers
+;;;;
+;;;; This namespace contains the functions that are used by the runtime of the
+;;;; framework. The main function is `-adapt', that takes an object and a
+;;;; class, and returns an Adapter encapsulating the object to something of the
+;;;; type of the class.
+
 (ns gluer.runtime
-  (:require [gluer.core :as c]
+  (:require [gluer.logic :as l]
             [gluer.resources :as r])
   (:use     [gluer.logging])
   (:gen-class :name gluer.Runtime
@@ -30,7 +38,7 @@
                "'%s' semi-randomly.")
           adapter-name from-name actual-name))
 
-(defn- closest-constructor 
+(defn- closest-constructor ;--- Move this to the logic namespace? 
   "Returns the constructor of the supplied class-name that matches the type of
   from-name the best."
   [class-name from-name]
@@ -58,7 +66,7 @@
    (log-verbose "Adaptation requested from" (.getName (class from-object)) "to" (.getName to-clazz))
    (let [from-name (.getName (class from-object))
          to-name (.getName to-clazz)
-         {:keys [result error]} (c/get-adapter-for from-name to-name adapters)]
+         {:keys [result error]} (l/get-adapter-for from-name to-name adapters)]
      (if error 
        (throw (RuntimeException. error))
        (let [constructor (closest-constructor result from-name)]
@@ -69,7 +77,7 @@
                 (.getName to-clazz) "using" adapter-name)
    (let [from-name (.getName (class from-object))
          to-name (.getName to-clazz)
-         eligible-names (->> (c/eligible-adapters from-name to-name adapters)
+         eligible-names (->> (l/eligible-adapters from-name to-name adapters)
                              (map first)
                              set)]
      (log-verbose "Eligible Adapters are:" eligible-names)

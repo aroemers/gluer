@@ -40,7 +40,7 @@
         annotation-db (doto (AnnotationDB.) (.scanArchives (into-array urls)))]
     (set (get (.getAnnotationIndex annotation-db) "gluer.Adapter"))))
 
-;;; Retrieval of classes and its supertypes.
+;;; Retrieval of class models and properties of them.
 
 (defn class-by-name
   "Returns a CtClass (from the javassist library) object representing the
@@ -49,6 +49,15 @@
   (try
     (.get (ClassPool/getDefault) class-name)
     (catch Exception e nil)))
+
+(defn public?
+  "Returns true if the supplied class is declared public, false otherwise."
+  [ctclass])
+
+(defn inner?
+  "Returns true if the supplied class is declared within another class, 
+  false otherwise."
+  [ctclass])
 
 (def supertypes-of 
   "A function that returns a set of the names of the direct supertypes 
@@ -81,6 +90,7 @@
     (if (seq types)
       (recur (set (mapcat supertypes-of types)) (conj result types))
       (remove-duplicates result))))
+
 
 ;;; Building the adapter library.
 

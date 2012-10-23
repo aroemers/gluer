@@ -1,10 +1,26 @@
+;;;; Summary: The multi-methods for the <where> and <what> clauses.
+;;;; Author:  Arnout Roemers
+;;;;
+;;;; This namespace contains the various multi-methods that need to be
+;;;; implemented by the various types of <where> and <what> clauses. The tool,
+;;;; both the checker as the runtime, depend on these implementations. Using
+;;;; multi-methods here makes it easy to extend the framework with new types
+;;;; of clauses.
+;;;;
+;;;; The multi-methods can be seperated in three categories: one for checking
+;;;; a clause, one for determining the type of the clause and one for generating
+;;;; or injecting code.
+;;;;
+;;;; The multi-method selection is based on the node-types in the parsing 
+;;;; result. 
+
 (ns gluer.clauses
   (:require [gluer.resources :as r])
   (:use     [gluer.logging])
   (:import  [java.io ByteArrayInputStream]
             [javassist CtField CtNewMethod]))
 
-;; The multi-methods to implement.
+;;; The multi-methods to implement.
 
 (defmulti check-where
   "Based on an association, the <where> clause is checked. Returns an error
@@ -41,7 +57,7 @@
     (ffirst where-clause)))
 
 
-;; The 'new' what clause.
+;;; The 'new' what clause.
 
 (defmethod check-what :what-clause-new
   [association]
@@ -60,7 +76,7 @@
     result))
 
 
-;; The 'call' what clause.
+;;; The 'call' what clause.
 
 (defmethod check-what :what-clause-call
   [association])
@@ -80,7 +96,7 @@
   (get-in association [:what :what-clause-call :method :word]))
 
 
-;; The 'single' what clause.
+;;; The 'single' what clause.
 
 (defmethod check-what :what-clause-single
   [association])
@@ -95,7 +111,7 @@
           (get-in association [:what :what-clause-single :class :word])))
 
 
-;; The 'field' where clause.
+;;; The 'field' where clause.
 
 (defmethod check-where :where-clause-field
   [association]
@@ -143,7 +159,7 @@
       (.insertBeforeBody constructor constructor-code))))
 
 
-;; In the future, a macro for something like the following might be cool:
+;;; In the future, a macro for something like the following might be cool:
 
 ; (defwhere :where-clause-field
 ;   :rules          {:where-clause-field ["field" :wfield/field]
