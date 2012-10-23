@@ -66,7 +66,7 @@
       (let [constructors (.getConstructors ctclass)]
         (when (empty? (filter #(= 0 (count (.getParameterTypes %))) constructors))
           (format "Class %s in `new' clause requires a no-argument constructor.")))
-      (format "Class %s in `new' clause not found. Please check the name or your classpath." class-name))))
+      (format "Class %s in `new' clause not found. Please check the name or classpath." class-name))))
 
 (defmethod type-of-what :what-clause-new
   [what-clause]
@@ -82,7 +82,16 @@
 ;;; The 'call' what clause.
 
 (defmethod check-what :what-clause-call
-  [association])
+  [association]
+  (let [what (get-in what-clause [:what-clause-call :method :word])
+        matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
+        class-name (apply str (butlast (second matched)))
+        method-name (nth matched 3)]
+    (if-let [ctclass (r/class-by-name class-name)]
+      (if-let [methods (filter #(= (.getName %) method-name) (.getMethods ctclass))]
+        nil ;--- TODO: Get method of correct arity and check whether it is static. 
+        (format "Method %s in the `new' clause does not exist in class %s." method-name class-name))
+      (format "Class %s in the `new' clause not found. Please check the name or classpath." class-name))))
 
 (defmethod type-of-what :what-clause-call
   [what-clause]
