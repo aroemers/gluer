@@ -1,3 +1,5 @@
+;;;--- TODO: Make parser a stand-alone library.
+
 (ns gluer.parser
   (:use [clojure.string :only (split split-lines join)]))
 

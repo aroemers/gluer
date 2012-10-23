@@ -3,7 +3,8 @@
 ;;;; 
 ;;;; This namespace contains the functions for checking the Adapter library and
 ;;;; the Gluer specifications. It also contains the logic for resolving the most
-;;;; suitable Adapter for an injection.
+;;;; suitable Adapter for an injection. This namespace is used by both the
+;;;; checking as well as the the agent/runtime.
 
 (ns gluer.logic
   (:require [gluer.parser :as p]
@@ -138,11 +139,11 @@
           (update-in result [:errors] conj (format adapts-to-nothing-error name)))
         (when (empty? (:adapts-from data))
           (update-in result [:errors] conj (format adapts-from-nothing-error name)))
-        (when (not (r/public? ctclass)
+        (when-not (r/public? ctclass)
           (update-in result [:errors] conj (format adapter-not-public name)))
         (when (and (r/inner? ctclass)) ;--- TODO: public static inner classes should be allowed.
           (update-in result [:errors] conj (format adapter-not-statically-accesible name)))
-        result)))))
+        result))))
 
 
 ;;; Gluer specification checking functions.

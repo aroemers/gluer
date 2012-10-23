@@ -62,8 +62,12 @@
 (defmethod check-what :what-clause-new
   [association]
   (let [{:keys [word line-nr]} (get-in association [:what :what-clause-new :class])]
-    (when-not (re-matches #"((?:\w+\.)+)(\w+)" word)
-      (str "The 'new' clause on line " line-nr " is not a valid class name."))))
+    (if-let [ctclass (r/class-by-name word)]
+      (let [constructors (.getConstructors ctclass)]
+        (when (and (< 0 (count .getParameterTypes constructors)) 
+                   (empty? (filter #(= 0 (count (.getParameterTypes %))) constructors)))
+          (format "Class %s in `new' clause requires a no-argument constructor.")))
+      (format "Class %s in `new' clause not found. Please check the name or your classpath." word))))
 
 (defmethod type-of-what :what-clause-new
   [what-clause]

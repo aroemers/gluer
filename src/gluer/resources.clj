@@ -50,7 +50,7 @@
     (.get (ClassPool/getDefault) class-name)
     (catch Exception e nil)))
 
-(defn public?
+(defn public? ;--- Make a stand-alone Clojure javassist wrapper altogether?
   "Returns true if the supplied class is declared public, false otherwise."
   [ctclass])
 
