@@ -133,9 +133,18 @@
 
 (defmethod check-where :where-clause-field
   [association]
-  (let [{:keys [word line-nr]} (get-in association [:where :where-clause-field :field])]
-    (when-not (re-matches #"((?:\w+\.)+)(\w+)" word)
-      (str "The 'field' clause in line " line-nr " is not a valid field name."))))
+  (let [where (get-in where-clause [:where-clause-field :field :word])
+        matched (re-matches #"((?:\w+\.)+)(\w+)" where)
+        class-name (apply str (butlast (second matched)))
+        field-name (nth matched 2)]
+    (if-let [ctclass (r/class-by-name class-name)]
+      (try
+        (let [field (.getDeclaredField ctclass field-name)]
+          nil) ;--- TODO: Check if field has init code or injection is overwritten in a constructor.
+        (catch javassist.NotFoundException nfe
+          (format "Class %s does not have a field named %s." class-name field-name)))
+      (format "Class %s cannot be found. Please check the name or classpath."))))
+
 
 (defmethod type-of-where :where-clause-field
   [where-clause]
