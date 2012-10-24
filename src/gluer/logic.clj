@@ -135,7 +135,8 @@
   (let [result {}]
     (doseq [[name data] adapter-library]
       (let [ctclass (r/class-by-name name)]
-        (when (empty? (:adapts-to data)) 
+        (when (empty? (:adapts-to data))
+          ;--- FIXME: Update-in returns a new value... had some beer Arnout? 
           (update-in result [:errors] conj (format adapts-to-nothing-error name)))
         (when (empty? (:adapts-from data))
           (update-in result [:errors] conj (format adapts-from-nothing-error name)))
@@ -221,4 +222,5 @@
   (let [{valid :succes failed :error} (group-by (comp ffirst :parsed) parsed-gluer-files)
         errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)
         valid-check-result (check-valid-files valid adapter-library)]
+        ;--- TODO: Check for overlapping associations.
     (update-in valid-check-result [:errors] concat errors)))

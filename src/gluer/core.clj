@@ -7,7 +7,8 @@
 
 (ns gluer.core
   (:require [gluer.logic :as l]
-            [gluer.resources :as r])
+            [gluer.resources :as r]
+            [gluer.config :as c])
   (:use     [gluer.logging]
             [clojure.tools.cli :only (cli)])
   (:gen-class))
@@ -96,9 +97,10 @@
   "The entry point of the tool when used as a checker."
   [& args]
   (let [[{:keys [verbose help]} args banner] (apply cli args commandline-opts)]
-    (with-redefs [*verbose* verbose]
-      (if help
-        (display-help-text banner)
-        (if-let [gluer-file-names (seq args)]
-          (check gluer-file-names)
-          (display-help-text banner))))))
+    (if help
+      (display-help-text banner)
+      (if-let [config-file-name (first args)]
+        (let [config (c/read-config (slurp config-file-name))]
+          (with-redefs [*verbose* (or verbose (:verbose config))]
+            (check (:glue config))))
+        (display-help-text banner)))))
