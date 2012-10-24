@@ -83,7 +83,7 @@
 
 (defmethod check-what :what-clause-call
   [association]
-  (let [what (get-in what-clause [:what-clause-call :method :word])
+  (let [what (get-in association [:what :what-clause-call :method :word])
         matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
         class-name (apply str (butlast (second matched)))
         method-name (nth matched 3)]
@@ -133,7 +133,7 @@
 
 (defmethod check-where :where-clause-field
   [association]
-  (let [where (get-in where-clause [:where-clause-field :field :word])
+  (let [where (get-in association [:where :where-clause-field :field :word])
         matched (re-matches #"((?:\w+\.)+)(\w+)" where)
         class-name (apply str (butlast (second matched)))
         field-name (nth matched 2)]
