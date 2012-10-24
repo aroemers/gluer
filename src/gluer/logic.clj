@@ -127,24 +127,25 @@
 
 ;;; Adapter checking functions.
 
+(defn- not-nil? ;--- Move this to a utility namespace?
+  [v]
+  (not (nil? v)))
+
 (defn check-adapter-library
   "This function checks the adapter library for consistency. A map is returned,
   with possibly a :warnings key and/or an :errors key. The values of those keys
   consist of (possibly empty) sequences."
   [adapter-library]
-  (let [result {}]
-    (doseq [[name data] adapter-library]
-      (let [ctclass (r/class-by-name name)]
-        (when (empty? (:adapts-to data))
-          ;--- FIXME: Update-in returns a new value... had some beer Arnout? 
-          (update-in result [:errors] conj (format adapts-to-nothing-error name)))
-        (when (empty? (:adapts-from data))
-          (update-in result [:errors] conj (format adapts-from-nothing-error name)))
-        (when-not (r/public? ctclass)
-          (update-in result [:errors] conj (format adapter-not-public name)))
-        (when (and (r/inner? ctclass)) ;--- TODO: public static inner classes should be allowed.
-          (update-in result [:errors] conj (format adapter-not-statically-accesible name)))
-        result))))
+  (letfn [(check-adapter [result [name data]]
+            (let [ctclass (r/class-by-name name)]
+              (update-in result [:errors] conj
+                (when (empty? (:adapts-to data)) (format adapts-to-nothing-error name))
+                (when (empty? (:adapts-from data)) (format adapts-from-nothing-error name))
+                (when-not (r/public? ctclass) (format adapter-not-public name))
+                (when (and (r/inner? ctclass)) (format adapter-not-statically-accesible name)))))]
+                ;--- TODO: public static inner classes should be allowed.
+    (-> (reduce check-adapter {} adapter-library)
+        (update-in [:errors] #(filter not-nil? %)))))
 
 
 ;;; Gluer specification checking functions.

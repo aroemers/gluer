@@ -93,7 +93,7 @@
 
 ;;; The main entry point.
 
-(defn -main
+(defn -main ;--- Maybe reading a JAR file containing .config, .gluer and Adapters is also nice?
   "The entry point of the tool when used as a checker."
   [& args]
   (let [[{:keys [verbose help]} args banner] (apply cli args commandline-opts)]
