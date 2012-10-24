@@ -89,7 +89,7 @@
         method-name (nth matched 3)]
     (if-let [ctclass (r/class-by-name class-name)]
       (if-let [methods (filter #(= (.getName %) method-name) (.getMethods ctclass))]
-        nil ;--- TODO: Get method of correct arity and check whether it is static. 
+        nil ;--- TODO: Get method of correct arity/types, if it exists, and check whether it is static. 
         (format "Method %s in the `new' clause does not exist in class %s." method-name class-name))
       (format "Class %s in the `new' clause not found. Please check the name or classpath." class-name))))
 
