@@ -43,8 +43,9 @@
   (println (format help-text-format (clojure.string/replace cli-banner "Usage:\n" ""))))
   
 (def commandline-opts
-  [["-h" "--help" "Print this help." :flag true]
-   ["-v" "--verbose" "Be verbose in output." :flag true]])
+  [["-h" "--help"     "Print this help." :flag true]
+   ["-v" "--verbose"  "Be verbose in output. Overwrites the setting in the configuration file." 
+         :flag true :default nil]])
 
 ;;; The functions that direct the checking.
 
@@ -101,6 +102,6 @@
       (display-help-text banner)
       (if-let [config-file-name (first args)]
         (let [config (c/read-config (slurp config-file-name))]
-          (with-redefs [*verbose* (or verbose (:verbose config))]
+          (with-redefs [*verbose* (or verbose (and (nil? verbose) (:verbose config)))]
             (check (:glue config))))
         (display-help-text banner)))))

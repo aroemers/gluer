@@ -1,4 +1,4 @@
-;;;; Summary: Reading the configuration files.
+;;;; Summary: Reading configuration files.
 ;;;; Author:  Arnout Roemers
 ;;;;
 ;;;; This namespace contains the functions to read the configuration text that
@@ -55,7 +55,7 @@
          config {}]
     (if-let [line (first lines)]
       (let [splitted (split line #"\s*:\s*" 2)]
-        (if (< 1 (count splitted))
+        (if (= 2 (count splitted))
           (let [[key value] splitted]
             (recur (rest lines) (handle (trim key) value config)))
           (recur (rest lines) config)))
