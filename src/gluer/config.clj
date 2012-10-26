@@ -5,7 +5,29 @@
 ;;;; specifies options, e.g. which .gluer files to use.
 
 (ns gluer.config
-  (:use [clojure.string :only (split split-lines)]))
+  (:use [clojure.string :only (split split-lines trim)]))
+
+;;; The configuration handling functions.
+
+(defmulti handle
+  "This function handles a key-value pair found in a configuration text. The
+  dispatch value is on the `key' parameter."
+  (fn [key value config] key))
+
+(defmethod handle :default
+  [key value config]
+  (throw (IllegalArgumentException. (format "Configuration key '%s' is unknown." key))))
+
+(defmethod handle "glue"
+  [key value config]
+  (update-in config [:glue] conj value))
+
+(defmethod handle "verbose"
+  [key value config]
+  (assoc config :verbose (= value "true")))
+
+
+;;; Reading the configuration.
 
 (defn read-config
   "Reads the supplied configuration text and returns a map of options. The format
@@ -30,13 +52,11 @@
     verbose: true"
   [text]
   (loop [lines (split-lines text)
-         options {}]
+         config {}]
     (if-let [line (first lines)]
-      (let [splitted (split line #"\s*:\s*")]
+      (let [splitted (split line #"\s*:\s*" 2)]
         (if (< 1 (count splitted))
           (let [[key value] splitted]
-            (cond (= key "glue") (recur (rest lines) (update-in options [:glue] conj value))
-                  (= key "verbose") (recur (rest lines) (assoc options :verbose (= value "true")))
-                  :else (throw (Exception. (format "Configuration key %s is unknown." key)))))
-          (recur (rest lines) options)))
-      options)))
+            (recur (rest lines) (handle (trim key) value config)))
+          (recur (rest lines) config)))
+      config)))
