@@ -18,7 +18,7 @@
   (:require [gluer.resources :as r])
   (:use     [gluer.logging])
   (:import  [java.io ByteArrayInputStream]
-            [javassist CtField CtNewMethod]))
+            [javassist CtClass ClassPool CtField CtNewMethod]))
 
 ;;; The multi-methods to implement.
 
@@ -81,6 +81,18 @@
 
 ;;; The 'call' what clause.
 
+(defn- check-expression
+  [expression]
+  (let [classpool (ClassPool/getDefault)
+        ctclass (.makeClass classpool "gluercompiletest")
+        field (CtField/make "private Object field;" ctclass)]
+    (.addField ctclass field (str expression ";"))
+    (try
+      (.toBytecode ctclass)
+      (finally 
+        (.detach ctclass) 
+        (.defrost ctclass)))))
+
 (defmethod check-what :what-clause-call
   [association]
   (let [what (get-in association [:what :what-clause-call :method :word])
@@ -89,7 +101,11 @@
         method-name (nth matched 3)]
     (if-let [ctclass (r/class-by-name class-name)]
       (if-let [methods (filter #(= (.getName %) method-name) (.getMethods ctclass))]
-        nil ;--- TODO: Get method of correct arity/types, if it exists, and check whether it is static. 
+        (try
+          (check-expression what)
+          nil
+          (catch javassist.CannotCompileException cce
+            (subs (.getMessage cce) 15)))
         (format "Method %s in the `new' clause does not exist in class %s." method-name class-name))
       (format "Class %s in the `new' clause not found. Please check the name or classpath." class-name))))
 

@@ -80,7 +80,7 @@
           adapter-library (r/build-adapter-library)
           _   (log-verbose "Adapter library:" adapter-library)
           _   (log-verbose "Checking adapter library data..." adapter-library)
-          _ (do-check (l/check-adapter-library adapter-library))
+          ;_ (do-check (l/check-adapter-library adapter-library))
           _   (log-verbose "Parsing .gluer files...")
           parsed-files (r/parse-gluer-files gluer-file-names)
           _   (log-verbose "Parsed .gluer files:" parsed-files)

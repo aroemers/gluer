@@ -178,7 +178,7 @@
         check-where-result (check-where association)
         check-what-result (check-what association)
         check-using-result (and using (check-using using adapter-library))]
-    (if (or check-where-result check-where-result check-using-result)
+    (if (or check-where-result check-what-result check-using-result)
       ;; Some errors during clause checks, report them.
       {:errors (concat (when check-where-result 
                           [(format-issue check-where-result file-name (line-nr where))])
