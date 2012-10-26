@@ -89,6 +89,9 @@
     (.addField ctclass field (str expression ";"))
     (try
       (.toBytecode ctclass)
+      nil
+      (catch javassist.CannotCompileException cce
+        (subs (.getMessage cce) 15))
       (finally 
         (.detach ctclass) 
         (.defrost ctclass)))))
@@ -97,17 +100,11 @@
   [association]
   (let [what (get-in association [:what :what-clause-call :method :word])
         matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
-        class-name (apply str (butlast (second matched)))
-        method-name (nth matched 3)]
+        class-name (apply str (butlast (second matched)))]
     (if-let [ctclass (r/class-by-name class-name)]
-      (if-let [methods (filter #(= (.getName %) method-name) (.getMethods ctclass))]
-        (try
-          (check-expression what)
-          nil
-          (catch javassist.CannotCompileException cce
-            (subs (.getMessage cce) 15)))
-        (format "Method %s in the `new' clause does not exist in class %s." method-name class-name))
-      (format "Class %s in the `new' clause not found. Please check the name or classpath." class-name))))
+      (check-expression what)
+      (format "Class %s in the `new' clause not found. Please check the name or classpath." 
+              class-name))))
 
 (defmethod type-of-what :what-clause-call
   [what-clause]
