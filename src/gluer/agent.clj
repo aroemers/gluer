@@ -89,24 +89,32 @@
   http://docs.oracle.com/javase/6/docs/api/java/lang/instrument/package-summary.html."
   [agent-args instrumentation]
   ;; Load the configuration.
-  (let [config (c/read-config (slurp agent-args))]
-    (with-redefs [*verbose* (:verbose config)]
-      (log-verbose "Parsing .gluer files and searching for Adapters...")
-      ;; Parse the files and check for parse errors.
-      (let [parsed (r/parse-gluer-files (:glue config))
-            erroneous (filter (comp :error :parsed) parsed)]
-        (if (not (empty? erroneous))
-          (do (doseq [error erroneous]
-                (println (format "Error parsing file '%s': %s"  
-                                 (:file-name error)
-                                 (:error (:parsed error)))))
-              (System/exit 1))
-          ;; No parse errors, so build the libraries and initialise the agent.
-          (let [association-library (r/build-association-library (map :parsed parsed))
-                transformation-library (build-transformation-library association-library)
-                adapter-library (r/build-adapter-library)
-                transformer (transformer transformation-library)]
-            (log-verbose "Transformation library:" transformation-library)
-            (log-verbose "Adapter library:" adapter-library)
-            (runtime/initialise adapter-library)
-            (.addTransformer instrumentation transformer)))))))
+  (if (nil? agent-args) 
+    (do (println "Please supply a configuration file.")
+        (System/exit 1))
+    (try 
+      (let [config (c/read-config (slurp agent-args))]
+        (with-redefs [*verbose* (:verbose config)]
+          (log-verbose "Parsing .gluer files and searching for Adapters...")
+          ;; Parse the files and check for parse errors.
+          (let [parsed (r/parse-gluer-files (:glue config))
+                erroneous (filter (comp :error :parsed) parsed)]
+            (if (not (empty? erroneous))
+              (do (doseq [error erroneous]
+                    (println (format "Error parsing file '%s': %s"  
+                                     (:file-name error)
+                                     (:error (:parsed error)))))
+                  (System/exit 1))
+              ;; No parse errors, so build the libraries and initialise the agent.
+              (let [association-library (r/build-association-library (map :parsed parsed))
+                    transformation-library (build-transformation-library association-library)
+                    adapter-library (r/build-adapter-library)
+                    transformer (transformer transformation-library)]
+                (log-verbose "Transformation library:" transformation-library)
+                (log-verbose "Adapter library:" adapter-library)
+                (runtime/initialise adapter-library)
+                (.addTransformer instrumentation transformer))))))
+      (catch java.io.FileNotFoundException fnfe 
+        (println "Configuration file" agent-args "not found.")
+        (System/exit 1)))))
+
