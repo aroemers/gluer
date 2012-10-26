@@ -101,7 +101,9 @@
     (if help
       (display-help-text banner)
       (if-let [config-file-name (first args)]
-        (let [config (c/read-config (slurp config-file-name))]
+        (if-let [config (try (c/read-config (slurp config-file-name)) 
+                             (catch java.io.IOException ioe))]
           (with-redefs [*verbose* (or verbose (and (nil? verbose) (:verbose config)))]
-            (check (:glue config))))
+            (check (:glue config)))
+          (println "Could not find or open file:" config-file-name))
         (display-help-text banner)))))
