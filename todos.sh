@@ -1,2 +1,2 @@
 #!/bin/sh
-grep -ERno "\-\-\-.*|FIXME.*|TODO.*" doc project.clj src src-java test
+grep -ERno --color=auto "\-\-\-.*|FIXME.*|TODO.*" doc project.clj src src-java test
