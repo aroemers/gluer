@@ -57,6 +57,15 @@
     (ffirst where-clause)))
 
 
+;;; Helper functions.
+
+(defn- full-class-name
+  "Returns the fully qualified class name, based on a package name and class 
+  name. The package may be nil."
+  [package class-name]
+  (str package (when package ".") class-name))
+
+
 ;;; The 'new' what clause.
 
 (defmethod check-what :what-clause-new
@@ -98,20 +107,18 @@
 
 (defmethod check-what :what-clause-call
   [association]
-  (let [what (get-in association [:what :what-clause-call :method :word])
-        matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
-        class-name (apply str (butlast (second matched)))]
+  (let [{:keys [word match]} (get-in association [:what :what-clause-call :method])
+        class-name (full-class-name (nth match 1) (nth match 2))]
     (if-let [ctclass (r/class-by-name class-name)]
-      (check-expression what)
+      (check-expression word)
       (format "Class %s in the `new' clause not found. Please check the name or classpath." 
               class-name))))
 
 (defmethod type-of-what :what-clause-call
   [what-clause]
-  (let [what (get-in what-clause [:what-clause-call :method :word])
-        matched (re-matches #"((\w+\.)+)(\w+)\(.*\)" what)
-        class-name (apply str (butlast (second matched)))
-        method-name (nth matched 3)
+  (let [match (get-in what-clause [:what-clause-call :method :match])
+        class-name (full-class-name (nth match 1) (nth match 2))
+        method-name (nth match 3)
         ctclass (r/class-by-name class-name)
         method (first (filter #(= (.getName %) method-name) (.getMethods ctclass)))]
     (.getName (.getReturnType method)))) 
@@ -146,14 +153,13 @@
 
 (defmethod check-where :where-clause-field
   [association]
-  (let [where (get-in association [:where :where-clause-field :field :word])
-        matched (re-matches #"((?:\w+\.)+)(\w+)" where)
-        class-name (apply str (butlast (second matched)))
-        field-name (nth matched 2)]
+  (let [match (get-in association [:where :where-clause-field :field :match])
+        class-name (full-class-name (nth match 1) (nth match 2))
+        field-name (nth match 3)]
     (if-let [ctclass (r/class-by-name class-name)]
       (try
         (let [field (.getDeclaredField ctclass field-name)]
-          nil) ;--- TODO: Check if field has init code or injection is overwritten in a constructor.
+          nil) ;--- Check if field has init code or injection is overwritten in a constructor?
         (catch javassist.NotFoundException nfe
           (format "Class %s does not have a field named %s." class-name field-name)))
       (format "Class %s cannot be found. Please check the name or classpath."))))
@@ -161,25 +167,23 @@
 
 (defmethod type-of-where :where-clause-field
   [where-clause]
-  (let [where (get-in where-clause [:where-clause-field :field :word])
-        matched (re-matches #"((?:\w+\.)+)(\w+)" where)
-        class-name (apply str (butlast (second matched)))
-        field-name (nth matched 2)
+  (let [match (get-in where-clause [:where-clause-field :field :match])
+        class-name (full-class-name (nth match 1) (nth match 2))
+        field-name (nth match 3)
         ctclass (r/class-by-name class-name)
         field (.getDeclaredField ctclass field-name)]
     (.getName (.getType field))))
 
 (defmethod transforms-classes :where-clause-field
   [association]
-  (let [where (get-in association [:where :where-clause-field :field :word])
-        matched (re-matches #"((?:\w+\.)+)(\w+)" where)]
-    #{(apply str (butlast (second matched)))}))
+  (let [match (get-in association [:where :where-clause-field :field :match])]
+    #{(full-class-name (nth match 1) (nth match 2))}))
 
 (defmethod inject-where :where-clause-field
   [where-clause ctclass retrieval-code]
   (let [constructors (.getDeclaredConstructors ctclass)
-        where (get-in where-clause [:where-clause-field :field :word])
-        field-name (nth (re-matches #"((?:\w+\.)+)(\w+)" where) 2)
+        match (get-in where-clause [:where-clause-field :field :match])
+        field-name (nth match 3)
         constructor-code (format "_inject_%1$s();" field-name)
         field-code (format "private boolean _%1$s_injected;" field-name)
         method-code (format 

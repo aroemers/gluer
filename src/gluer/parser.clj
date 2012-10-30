@@ -1,4 +1,13 @@
 ;;;--- TODO: Make parser a stand-alone library.
+;;;
+;;;--- TODO: Add parse functions for regular expression terminals, 
+;;;          so one could have for instance {:call {:word "alice.bob.Foo$Bar.get(true)" 
+;;;                                                 :line-nr 1
+;;;                                                 :data {:class-name "Foo$Bar"
+;;;                                                        :package "alice.bob"
+;;;                                                        :method-name "get"}}}
+;;;
+;;;--- TODO: How to deal with [:foo*] rules, where errors in parsing :foo are lost?
 
 (ns gluer.parser
   (:use [clojure.string :only (split split-lines join)]))
@@ -21,7 +30,7 @@
         word (:word token)]
     (if token
       (if-let [match (re-matches re word)]
-        {:succes token;(if (vector? match) (first match) match)
+        {:succes (assoc token :match match)
          :remainder (rest remainder)}
         {:error (str "Unexpected token '" word "' on line " (:line-nr token) 
                      ", expected a word matching the regex '" re "'.")})

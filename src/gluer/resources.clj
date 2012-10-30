@@ -140,6 +140,12 @@
 
 ;;; Parsing the .gluer files and building the association library
 
+;; The following definitions are (partial) regular expression, each yielding one
+;; capture group.
+(def ^:private package-pattern "(?:((?:\\w+\\.)*\\w+)\\.)")
+(def ^:private class-pattern "((?:\\w|\\$)+)")
+(def ^:private member-pattern "(\\w+)")
+
 (def rules
   "The parse rules for .gluer files."
   {; Basic rules
@@ -148,17 +154,17 @@
    :where #{ :where-clause-field }
    :what #{ :what-clause-new :what-clause-call :what-clause-single}
    :using ["using" :class]
-   :class #"((\w+\.)*)((\w|\$)+)"
-
+   :class (re-pattern (str package-pattern "?" class-pattern))
+   
    ; Where clauses
    :where-clause-field ["field" :field]
-   :field #"(\w+\.)+\w+"
+   :field (re-pattern (str package-pattern "?" class-pattern "\\." member-pattern))
 
    ; What clauses
    :what-clause-new ["new" :class]
 
    :what-clause-call ["call" :method]
-   :method #"(\w+\.)+\w+\(.*\)"
+   :method (re-pattern (str package-pattern "?" class-pattern "\\." member-pattern "\\(.*\\)"))
 
    :what-clause-single ["single" :class]})
 
