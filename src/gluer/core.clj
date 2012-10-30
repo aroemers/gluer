@@ -20,19 +20,19 @@
   The resulting format string currently requires one parameter: the
   switches that can be used at the command-line."
   (apply str (interpose "\n" (list
-    "Welcome to the Gluer checker. This tools checks the specified gluer files"
-    "for consistency. Use as follows:"
+    "Welcome to the Gluer checker. This tools checks the specified gluer files for"
+    "consistency. Use as follows:"
     ""
-    " java -cp <class-path> -jar gluer-VERSION-standalone.jar [switches] [gluer-files]"
+    " java -cp <class-path> -jar gluer-VERSION-standalone.jar [switches] <config-file>"
     ""
-    "The <class-path> should at least contain the components you want to glue"
-    "and optionally plug-ins. The following switches can be used:"
+    "The <class-path> should at least contain the components you want to glue, the"
+    "Adapter classes and optionally the plug-ins. The following switches can be used:"
     "%1$s" ; the command-line switches
-    "To use the tool as a framework for your application, start your application"
-    "as follows:"
+    "To use the tool as a framework for your application, start your application as"
+    "follows:"
     ""
-    " java -cp <class-path>:"
-    "      -javaagent:gluer-VERSION-standalone.jar=<gluer-file>[:<other-gluer-files>]"
+    " java -cp <class-path>"
+    "      -javaagent:gluer-VERSION-standalone.jar=<config-file>"
     "      <your.app.Main>"))))
           
 
@@ -44,7 +44,7 @@
   
 (def commandline-opts
   [["-h" "--help"     "Print this help." :flag true]
-   ["-v" "--verbose"  "Be verbose in output. Overwrites the setting in the configuration file." 
+   ["-v" "--verbose"  "Verbose output. Overrules configuration file setting." 
          :flag true :default nil]])
 
 ;;; The functions that direct the checking.
@@ -81,7 +81,7 @@
           adapter-library (r/build-adapter-library)
           _   (log-verbose "Adapter library:" adapter-library)
           _   (log-verbose "Checking adapter library data..." adapter-library)
-          ;_ (do-check (l/check-adapter-library adapter-library))
+          _ (do-check (l/check-adapter-library adapter-library))
           _   (log-verbose "Parsing .gluer files...")
           parsed-files (r/parse-gluer-files gluer-file-names)
           _   (log-verbose "Parsed .gluer files:" parsed-files)

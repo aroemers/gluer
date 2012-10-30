@@ -16,7 +16,7 @@
   (:require [gluer.parser :as p])
   (:use     [clojure.string :only (split)]
             [clojure.set :only (difference union)])
-	(:import  [javassist ClassPool]
+	(:import  [javassist ClassPool Modifier]
             [java.io File]
             [org.scannotation AnnotationDB]))
 
@@ -50,14 +50,26 @@
     (.get (ClassPool/getDefault) class-name)
     (catch Exception e nil)))
 
+(defn- modifiers
+  "Returns the modifiers of the specified class, encoded in an integer."
+  [ctclass]
+  (.getModifiers ctclass))
+
 (defn public? ;--- Make a stand-alone Clojure javassist wrapper altogether?
   "Returns true if the supplied class is declared public, false otherwise."
-  [ctclass])
+  [ctclass]
+  (Modifier/isPublic (modifiers ctclass)))
 
 (defn inner?
   "Returns true if the supplied class is declared within another class, 
   false otherwise."
-  [ctclass])
+  [ctclass]
+  (not (nil? (.getDeclaringClass ctclass))))
+
+(defn static?
+  "Returns true if the supplied class is a static inner class, false otherwise."
+  [ctclass]
+  (Modifier/isStatic (modifiers ctclass)))
 
 (def supertypes-of 
   "A function that returns a set of the names of the direct supertypes 
@@ -136,7 +148,7 @@
    :where #{ :where-clause-field }
    :what #{ :what-clause-new :what-clause-call :what-clause-single}
    :using ["using" :class]
-   :class #"(\w+\.)*\w+"
+   :class #"((\w+\.)*)((\w|\$)+)"
 
    ; Where clauses
    :where-clause-field ["field" :field]

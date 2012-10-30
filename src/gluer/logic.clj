@@ -40,7 +40,7 @@
   "Adapter %s is not declared public.")
 
 (def adapter-not-statically-accesible
-  "Adapter %s is not statically accessible. Make sure it is an outer class, or a static inner class.")
+  "Adapter %s is not statically accessible. Make sure it is a top-level class, or a static inner class.")
 
 (defn format-issue
   [message file-name line-nr]
@@ -142,8 +142,8 @@
                 (when (empty? (:adapts-to data)) (format adapts-to-nothing-error name))
                 (when (empty? (:adapts-from data)) (format adapts-from-nothing-error name))
                 (when-not (r/public? ctclass) (format adapter-not-public name))
-                (when (and (r/inner? ctclass)) (format adapter-not-statically-accesible name)))))]
-                ;--- TODO: public static inner classes should be allowed.
+                (when (and (r/inner? ctclass) (not (r/static? ctclass))) 
+                  (format adapter-not-statically-accesible name)))))]
     (-> (reduce check-adapter {} adapter-library)
         (update-in [:errors] #(filter not-nil? %)))))
 
@@ -210,7 +210,7 @@
     (reduce (partial merge-with concat) 
             (map #(check-association % file-name adapter-library) associations))))
 
-(defn- check-valid-files ;--- TODO: public static inner classes should be allowed.files
+(defn- check-valid-files
   [valid-files adapter-library]
   (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
 
