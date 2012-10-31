@@ -89,6 +89,8 @@
 
 
 ;;; The 'call' what clause.
+;;--- TODO: Generalize the call clause? So it supports arbritary statements, like constructors.
+;;          Would the type still be statically determinable? Or should we extend the 'new' clause?
 
 (defn- check-expression
   [expression]
