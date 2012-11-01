@@ -215,10 +215,18 @@
   (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
 
 (defn- check-valid-files-overlap
+  "Given a sequence of succesfully parsed .gluer files, this function checks
+  whether any of the associations in all those files conflict. It returns a 
+  sequence of error message, which might be empty if no overlap conflicts are
+  found."
   [valid-files]
+  ;; First, make a single list of all the associations, together with its file name.
+  ;; The symbol file-associations will refer to a sequence of filename-association pairs.
   (let [file-associations (for [file valid-files
                                 association (get-in file [:parsed :succes :associations :association])]
                             [(:file-name file) association])]
+    ;; Loop through the associations, and check overlap with all the other associations AFTER it.
+    ;; This way, no two associations are checked twice.
     (loop [associations file-associations
            errors-accum []]
       (if-let [[this-file this-assoc] (first associations)]
