@@ -95,11 +95,16 @@
 
 ;;; Helper functions.
 
-(defn absolutise ;--- Move this to a utility namespace?
-  [root-file file-names]
-  (let [root-url (java.net.URL. (str "file:" root-file))]
-    (for [file-name file-names]
-      (.getFile (java.net.URL. root-url file-name)))))
+(defn resolve-file-paths ;--- Move this to a utility namespace?
+  "Given a root file name and a collection of file paths, this function returns 
+  the paths to the file, as resolved from the specified root. If the resulting 
+  path is relative to the current working directory, that relative path is 
+  returned. Otherwise, an absolute path is returned."
+  [root paths]
+  (let [root-uri (.toURI (java.io.File. root))
+        pwd-uri (.toURI (java.io.File. "."))]
+    (for [path paths]
+      (.getPath (.relativize pwd-uri (.resolve root-uri path))))))
 
 
 ;;; The main entry point.
@@ -114,6 +119,6 @@
         (if-let [config (try (c/read-config (slurp config-file-name)) 
                              (catch java.io.IOException ioe))]
           (with-redefs [*verbose* (or verbose (and (nil? verbose) (:verbose config)))]
-            (check (absolutise config-file-name (:glue config))))
+            (check (resolve-file-paths config-file-name (:glue config))))
           (println "Could not find or open file:" config-file-name))
         (display-help-text banner)))))
