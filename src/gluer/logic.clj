@@ -238,5 +238,6 @@
   files will be checked (even if other files have parse errors)."
   [parsed-gluer-files adapter-library]
   (let [{valid :succes failed :error} (group-by (comp ffirst :parsed) parsed-gluer-files)
-        errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)]
-    (check-valid-files valid adapter-library)))
+        parse-errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)]
+    (-> (check-valid-files valid adapter-library)
+        (update-in [:errors] concat parse-errors))))
