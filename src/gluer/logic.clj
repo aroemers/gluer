@@ -214,6 +214,22 @@
   [valid-files adapter-library]
   (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
 
+(defn- check-valid-files-overlap
+  [valid-files]
+  (let [file-associations (for [file valid-files
+                                association (get-in file [:parsed :succes :associations :association])]
+                            [(:file-name file) association])]
+    (loop [associations file-associations
+           errors-accum []]
+      (if-let [[this-file this-assoc] (first associations)]
+        (let [errors (for [[that-file that-assoc] (rest associations)] 
+                        (when-let [error-msg (check-overlap this-assoc that-assoc)]
+                          (format "Overlap detected with associations in %s:%s and %s:%s: %s"
+                                  this-file (line-nr this-assoc) that-file (line-nr that-assoc)
+                                  error-msg)))]
+          (recur (rest associations) (concat errors-accum errors)))
+        (remove nil? errors-accum)))))
+
 (defn check-gluer-files
   "Given the parse results of the gluer files (as returned by 
   `gluer.resources/parse-gluer-files'), this function checks for warnings and 
@@ -222,6 +238,6 @@
   [parsed-gluer-files adapter-library]
   (let [{valid :succes failed :error} (group-by (comp ffirst :parsed) parsed-gluer-files)
         errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)
-        valid-check-result (check-valid-files valid adapter-library)]
-        ;--- TODO: Check for overlapping associations.
-    (update-in valid-check-result [:errors] concat errors)))
+        valid-check-result (check-valid-files valid adapter-library)
+        overlap-check-result (check-valid-files-overlap valid)]
+    (update-in valid-check-result [:errors] concat errors overlap-check-result)))

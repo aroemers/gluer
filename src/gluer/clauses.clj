@@ -20,27 +20,22 @@
   (:import  [java.io ByteArrayInputStream]
             [javassist CtClass ClassPool CtField CtNewMethod]))
 
-;;; The multi-methods to implement.
+;;; The multi-methods to implement, for a <where> clause.
 
 (defmulti check-where
   "Based on an association, the <where> clause is checked. Returns an error
   message if problems are detected, nil otherwise."
   (fn [association] (ffirst (:where association))))
 
-(defmulti check-what
-  "Based on an association, the <what> clause is checked. Returns an error
-  message if problems are detected, nil otherwise."
-  (fn [association] (ffirst (:what association))))
+(defmulti check-overlap
+  "Based on two associations, the first should check if it overlaps with the
+  second. Returns an error message if problems are detected, nil otherwise."
+  (fn [this-association that-association] (ffirst (:where this-association))))
 
 (defmulti type-of-where
   "Given a <where> clause, returns the fully qualified name of the (base) type 
   of the clause."
   (fn [where-clause] (ffirst where-clause)))
-
-(defmulti type-of-what
-  "Given a <what> clause, returns the fully qualified name of the (base) type of
-  the clause."
-  (fn [what-clause] (ffirst what-clause)))
 
 (defmulti transforms-classes
   "Given an association, returns a set of class names it needs to transform.
@@ -48,13 +43,28 @@
   whole association."
   (fn [association] (ffirst (:where association))))
 
+(defmulti inject-where
+  "Based on a where-clause and a class model (ctclass), inject the retrieval-code
+  into the class. Since the ctclass is stateful, nothing needs to be returned."
+  (fn [where-clause ctclass retrieval-code] 
+    (ffirst where-clause)))
+
+
+;;; The multi-methods to implement, for a <what> clause.
+
+(defmulti check-what
+  "Based on an association, the <what> clause is checked. Returns an error
+  message if problems are detected, nil otherwise."
+  (fn [association] (ffirst (:what association))))
+
+(defmulti type-of-what
+  "Given a <what> clause, returns the fully qualified name of the (base) type of
+  the clause."
+  (fn [what-clause] (ffirst what-clause)))
+
 (defmulti generate-what
   "Given an association, returns the source code expressing the <what> clause."
   (fn [association] (ffirst (:what association))))
-
-(defmulti inject-where
-  (fn [where-clause ctclass retrieval-code] 
-    (ffirst where-clause)))
 
 
 ;;; Helper functions.
@@ -166,6 +176,12 @@
           (format "Class %s does not have a field named %s." class-name field-name)))
       (format "Class %s cannot be found. Please check the name or classpath."))))
 
+(defmethod check-overlap :where-clause-field
+  [this that]
+  (when-let [that-field (get-in that [:where :where-clause-field :field :word])]
+    (let [this-field (get-in this [:where :where-clause-field :field :word])]
+      (when (= this-field that-field) 
+        (format "The field '%s' has conflicting injections." this-field)))))
 
 (defmethod type-of-where :where-clause-field
   [where-clause]
