@@ -166,7 +166,6 @@
    :errors (\"Some error\" \"Another error\")}
 
   The map values may be empty, which means no warnings and/or errors."
-  ; [association file-name adapter-library]
   [[file-name association] adapter-library]
   ;; Retrieve data and perform clause checks.
   (let [where (:where association)
