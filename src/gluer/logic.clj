@@ -127,10 +127,6 @@
 
 ;;; Adapter checking functions.
 
-(defn- not-nil? ;--- Move this to a utility namespace?
-  [v]
-  (not (nil? v)))
-
 (defn check-adapter-library
   "This function checks the adapter library for consistency. A map is returned,
   with possibly a :warnings key and/or an :errors key. The values of those keys
@@ -145,14 +141,14 @@
                 (when (and (r/inner? ctclass) (not (r/static? ctclass))) 
                   (format adapter-not-statically-accesible name)))))]
     (-> (reduce check-adapter {} adapter-library)
-        (update-in [:errors] #(filter not-nil? %)))))
+        (update-in [:errors] #(remove nil? %)))))
 
 
 ;;; Gluer specification checking functions.
 
 (defn- check-using
   "Checks whether the class name in 'using' is an Adapter (or exists at all).
-  If all is fine, nil is returned, otherwise an error messag is returned."
+  If all is fine, nil is returned, otherwise an error message is returned."
   [using adapter-library]
   (let [adapter-name (get-in using [:class :word])]
     (when-not (adapter-library adapter-name)
@@ -161,16 +157,17 @@
         (format not-found-error adapter-name)))))
 
 (defn- check-association
-  "This function checks a single association. It checks the individual clauses
-  and, if no issues were found, continues to check the whole association 
-  regarding finding a suitable adapter. The functions returns a map in the
-  following form:
+  "This function checks a single filename-association pair. It checks the 
+  individual clauses and, if no issues were found, continues to check the whole 
+  association regarding finding a suitable adapter. The functions returns a map
+  in the following form:
 
   {:warnings (\"Some warning\")
    :errors (\"Some error\" \"Another error\")}
 
   The map values may be empty, which means no warnings and/or errors."
-  [association file-name adapter-library]
+  ; [association file-name adapter-library]
+  [[file-name association] adapter-library]
   ;; Retrieve data and perform clause checks.
   (let [where (:where association)
         what (:what association)
@@ -203,49 +200,44 @@
             {:errors (when error [(format-issue error file-name (line-nr where))])
              :warnings (when warning [(format-issue warning file-name (line-nr where))])}))))))
 
-(defn- check-valid-file
-  [valid-file adapter-library]
-  (let [associations (get-in valid-file [:parsed :succes :associations :association])
-        file-name (:file-name valid-file)]
-    (reduce (partial merge-with concat) 
-            (map #(check-association % file-name adapter-library) associations))))
+(defn- check-overlaps
+  "This functions checks all filename-association pairs for overlap conflicts.
+  The return value is a (possibly empty) sequence with error messages."
+  [file-associations]
+  ;; Loop through the associations, and check overlap with all the other associations AFTER it.
+  ;; This way, no two associations are checked twice.
+  (loop [associations file-associations
+         errors-accum []]
+    (if-let [[this-file this-assoc] (first associations)]
+      (let [errors (for [[that-file that-assoc] (rest associations)] 
+                      (when-let [error-msg (check-overlap this-assoc that-assoc)]
+                        (format "Overlap detected with associations in %s:%s and %s:%s: %s"
+                                this-file (line-nr this-assoc) that-file (line-nr that-assoc)
+                                error-msg)))]
+        (recur (rest associations) (concat errors-accum errors)))
+      (remove nil? errors-accum))))
 
 (defn- check-valid-files
+  "Given a collection of succesfully parsed files and a valid adapter library,
+  this function will check all associations. The return value is a merged map of
+  all the results given by the 'check-association' function."
   [valid-files adapter-library]
-  (reduce (partial merge-with concat) (map #(check-valid-file % adapter-library) valid-files)))
-
-(defn- check-valid-files-overlap
-  "Given a sequence of succesfully parsed .gluer files, this function checks
-  whether any of the associations in all those files conflict. It returns a 
-  sequence of error message, which might be empty if no overlap conflicts are
-  found."
-  [valid-files]
-  ;; First, make a single list of all the associations, together with its file name.
-  ;; The symbol file-associations will refer to a sequence of filename-association pairs.
+  ;; The symbol file-associations will refer to a single sequence of filename-association pairs.
   (let [file-associations (for [file valid-files
                                 association (get-in file [:parsed :succes :associations :association])]
-                            [(:file-name file) association])]
-    ;; Loop through the associations, and check overlap with all the other associations AFTER it.
-    ;; This way, no two associations are checked twice.
-    (loop [associations file-associations
-           errors-accum []]
-      (if-let [[this-file this-assoc] (first associations)]
-        (let [errors (for [[that-file that-assoc] (rest associations)] 
-                        (when-let [error-msg (check-overlap this-assoc that-assoc)]
-                          (format "Overlap detected with associations in %s:%s and %s:%s: %s"
-                                  this-file (line-nr this-assoc) that-file (line-nr that-assoc)
-                                  error-msg)))]
-          (recur (rest associations) (concat errors-accum errors)))
-        (remove nil? errors-accum)))))
+                            [(:file-name file) association])
+        individual-check-results (map #(check-association % adapter-library) file-associations)
+        overlap-check-results (check-overlaps file-associations)]
+    ;; Merge all the {:errors [..] :warnings [..]} maps, and add the overlap errors to it.
+    (-> (reduce (partial merge-with concat) individual-check-results)
+        (update-in [:errors] concat overlap-check-results))))
 
 (defn check-gluer-files
   "Given the parse results of the gluer files (as returned by 
   `gluer.resources/parse-gluer-files'), this function checks for warnings and 
   errors in them. Parse errors are reported as well, and succesfully parsed
-  files will be checked nonetheless."
+  files will be checked (even if other files have parse errors)."
   [parsed-gluer-files adapter-library]
   (let [{valid :succes failed :error} (group-by (comp ffirst :parsed) parsed-gluer-files)
-        errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)
-        valid-check-result (check-valid-files valid adapter-library)
-        overlap-check-result (check-valid-files-overlap valid)]
-    (update-in valid-check-result [:errors] concat errors overlap-check-result)))
+        errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)]
+    (check-valid-files valid adapter-library)))
