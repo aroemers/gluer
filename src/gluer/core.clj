@@ -92,6 +92,16 @@
     (catch InterruptedException ex 
       (println "Errors detected. Fix above errors and re-run the check."))))
 
+
+;;; Helper functions.
+
+(defn absolutise ;--- Move this to a utility namespace?
+  [root-file file-names]
+  (let [root-url (java.net.URL. (str "file:" root-file))]
+    (for [file-name file-names]
+      (.getFile (java.net.URL. root-url file-name)))))
+
+
 ;;; The main entry point.
 
 (defn -main ;--- Maybe reading a JAR file containing .config, .gluer and Adapters is also nice?
@@ -104,6 +114,6 @@
         (if-let [config (try (c/read-config (slurp config-file-name)) 
                              (catch java.io.IOException ioe))]
           (with-redefs [*verbose* (or verbose (and (nil? verbose) (:verbose config)))]
-            (check (:glue config)))
+            (check (absolutise config-file-name (:glue config))))
           (println "Could not find or open file:" config-file-name))
         (display-help-text banner)))))

@@ -177,7 +177,6 @@ verbose: false
 
 ## Future improvements
 
-* Make 'glue' paths in the config relative to the configuration file.
 * Generics support
 * Plain, adapter-less injections
 * Plug-in system

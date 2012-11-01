@@ -12,6 +12,7 @@
             [gluer.resources :as r]
             [gluer.runtime :as runtime]
             [gluer.config :as c]
+            [gluer.core :as core]
             [clojure.string :as s])
   (:use     [gluer.clauses]
             [gluer.logging])
@@ -97,7 +98,7 @@
       (with-redefs [*verbose* (:verbose config)]
         (log-verbose "Parsing .gluer files and searching for Adapters...")
         ;; Parse the files and check for parse errors.
-        (let [parsed (r/parse-gluer-files (:glue config))
+        (let [parsed (r/parse-gluer-files (core/absolutise agent-args (:glue config)))
               erroneous (filter (comp :error :parsed) parsed)]
           (if (not (empty? erroneous))
             (do (doseq [error erroneous]
