@@ -72,11 +72,10 @@ Since the `Archiver2Service` is tagged with the `@Adapter` annotation, the Gluer
 Gluer has two modes of usage, i.e. a **checking** mode and a **runtime** mode. We can check if our injections will work using Gluer as a *checking* tool. Both modes require a small configuration file, for instance in `example.config`:
 
 ```properties
-glue: client.gluer
-verbose: false
+glue: example.gluer
 ```
 
-Checking our .gluer specifications and the Adapter classes goes as follows (assuming all above classes are in the current directory):
+Above configuration tells the tool to use one .gluer file, namely 'example.gluer'. Checking our .gluer specifications and the Adapter classes goes as follows (assuming all above classes are in the current directory):
 
 ```bash
 $ java -cp . -jar gluer.jar example.config
@@ -132,6 +131,8 @@ The following \<what\> clauses are currently supported:
 
 Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter\> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. Currently this is the only means to mitigate resolution conflicts.
 
+An association might also specify injections that are type compatible. This is perfectly fine, and the runtime will inject the result of the \<what\> clause directly in the place designated by the \<where\> clause. Such a direct injection will still take place through the Gluer runtime (i.e., it cannot be optimised), because one can write associations that sometimes need an Adapter and sometimes do not, depending on the actual runtime type of the \<what\> clause (in particular the 'call' clause).
+
 An example .gluer file:
 
 ```
@@ -178,14 +179,13 @@ verbose: false
 ## Future improvements
 
 * Generics support
-* Plain, adapter-less injections
 * Plug-in system
 * Class-path entries in configuration
 
 ## License and disclaimer
 
-Copyright © 2012 Arnout Roemers
+Source Copyright © 2012 Arnout Roemers
 
-License to be determined.
+Distributed under the [Eclipse Public License, v1.0](http://www.eclipse.org/legal/epl-v10.html)
 
 This is a work in progress, use at own risk.
