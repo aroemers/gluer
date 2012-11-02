@@ -13,6 +13,7 @@
 ;;;; .gluer files.
 
 (ns gluer.resources
+  (:refer-clojure :exclude [isa?])
   (:require [gluer.parser :as p])
   (:use     [clojure.string :only (split)]
             [clojure.set :only (difference union)])
@@ -74,7 +75,10 @@
 (def supertypes-of 
   "A function that returns a set of the names of the direct supertypes 
   (classes and interfaces) of the supplied class. The function is memoized and 
-  takes one parameter: the class name."
+  takes one parameter: the class name.
+
+  Note that this function is memoized. Changes in the hierarchy after being
+  requested by this function are not shown."
   (memoize (fn [class-name]
     (when-not (= class-name "java.lang.Object")
       (let [ctclass (class-by-name class-name)]
@@ -102,6 +106,12 @@
     (if (seq types)
       (recur (set (mapcat supertypes-of types)) (conj result types))
       (remove-duplicates result))))
+
+(defn isa?
+  "Returns truthy if 'this' class-name is exactly 'that' class-name or a subtype, 
+  false otherwise."
+  [this that]
+  (or (= this that) ((apply union (leveled-supertypes-of this)) that)))
 
 
 ;;; Building the adapter library.

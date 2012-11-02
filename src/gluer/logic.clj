@@ -73,7 +73,8 @@
                          (let [from-types-lvl (nth from-types-lvld depth)
                                result (filter #(not (= from-types-lvl 
                                                        (difference from-types-lvl
-                                                                   (:adapts-from (second %))))) eligible)]
+                                                                   (:adapts-from (second %))))) 
+                                              eligible)]
                            (if (empty? result) (recur (inc depth)) result)))]
       (if (= 1 (count closest-from))
         closest-from
@@ -185,19 +186,20 @@
       ;; No errors during clause checks, check resolution.
       (let [where-type (type-of-where where)
             what-type (type-of-what (:what association))]
-        (if using
-          ;; Using keyword specified, check if it is eligible.
-          (let [adapter-name (get-in using [:class :word])
-                eligible-names (->> (eligible-adapters what-type where-type adapter-library)
-                                    (map first)
-                                    set)]
-            (when-not (eligible-names adapter-name)
-              {:errors [(format-issue (format not-eligible-error adapter-name what-type where-type)
-                                     file-name (line-nr using))]}))
-          ;; No using keyword, try to find a suitable adapter.
-          (let [{:keys [result warning error]} (get-adapter-for what-type where-type adapter-library)]
-            {:errors (when error [(format-issue error file-name (line-nr where))])
-             :warnings (when warning [(format-issue warning file-name (line-nr where))])}))))))
+        (cond using ;; Using keyword specified, check if it is eligible.
+              (let [adapter-name (get-in using [:class :word])
+                    eligible-names (->> (eligible-adapters what-type where-type adapter-library)
+                                        (map first)
+                                        set)]
+                (when-not (eligible-names adapter-name)
+                  {:errors [(format-issue (format not-eligible-error adapter-name what-type where-type)
+                                         file-name (line-nr using))]}))
+              (r/isa? what-type where-type) ;; A direct injection is possible, nothing to report.
+              nil
+              :else ;; No using keyword and no direct injection, so try to find a suitable adapter.
+              (let [{:keys [result warning error]} (get-adapter-for what-type where-type adapter-library)]
+                {:errors (when error [(format-issue error file-name (line-nr where))])
+                 :warnings (when warning [(format-issue warning file-name (line-nr where))])}))))))
 
 (defn- check-overlaps
   "This functions checks all filename-association pairs for overlap conflicts.

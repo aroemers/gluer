@@ -66,12 +66,13 @@
    (log-verbose "Adaptation requested from" (.getName (class from-object)) "to" (.getName to-clazz))
    (let [from-name (.getName (class from-object))
          to-name (.getName to-clazz)
-         {:keys [result error]} (l/get-adapter-for from-name to-name adapters)]
-     (if error 
-       (throw (RuntimeException. error))
-       (let [constructor (closest-constructor result from-name)]
-         (log-verbose "Adapter choice is:" result)
-         (.newInstance constructor (into-array [from-object]))))))
+         compatible? (r/isa? from-name to-name)
+         {:keys [result error]} (when-not compatible? (l/get-adapter-for from-name to-name adapters))]
+     (cond compatible? from-object
+           error (throw (RuntimeException. error))
+           :else (let [constructor (closest-constructor result from-name)]
+                   (log-verbose "Adapter choice is:" result)
+                   (.newInstance constructor (into-array [from-object]))))))
   ([from-object to-clazz adapter-name]
    (log-verbose "Adaptation requested from" (.getName (class from-object)) "to" 
                 (.getName to-clazz) "using" adapter-name)
