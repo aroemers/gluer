@@ -72,6 +72,11 @@
   [ctclass]
   (Modifier/isStatic (modifiers ctclass)))
 
+(defn abstract?
+  "Returns true if the supplied class is an abstract class, false otherwise."
+  [ctclass]
+  (Modifier/isAbstract (modifiers ctclass)))
+
 (def supertypes-of 
   "A function that returns a set of the names of the direct supertypes 
   (classes and interfaces) of the supplied class. The function is memoized and 

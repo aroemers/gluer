@@ -6,7 +6,7 @@ import test.modelb.SubB;
 import test.modelb.SubSubB;
 
 @Adapter
-public class SubBtoA implements A {
+public abstract class SubBtoA implements A {
 	
 	private SubB adaptee;
 

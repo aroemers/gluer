@@ -42,6 +42,9 @@
 (def adapter-not-statically-accesible
   "Adapter %s is not statically accessible. Make sure it is a top-level class, or a static inner class.")
 
+(def adapter-not-concrete
+  "Adapter %s is not a concrete class (it is abstract or an interface).")
+
 (defn format-issue
   [message file-name line-nr]
   (format "%s:%s %s" file-name line-nr message))
@@ -139,6 +142,7 @@
                 (when (empty? (:adapts-to data)) (format adapts-to-nothing-error name))
                 (when (empty? (:adapts-from data)) (format adapts-from-nothing-error name))
                 (when-not (r/public? ctclass) (format adapter-not-public name))
+                (when (r/abstract? ctclass) (format adapter-not-concrete name))
                 (when (and (r/inner? ctclass) (not (r/static? ctclass))) 
                   (format adapter-not-statically-accesible name)))))]
     (-> (reduce check-adapter {} adapter-library)
