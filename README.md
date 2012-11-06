@@ -91,7 +91,7 @@ Archiving: something neat
 
 ## Building
 
-This project is written in Clojure 1.4. Building it requires [leiningen 2](https://github.com/technomancy/leiningen) to be installed. To build it, clone this repository and type `lein uberjar` in a terminal, while in the root directory of the clone.
+This project is written in Clojure 1.4. Building it requires [leiningen 2](https://github.com/technomancy/leiningen) to be installed. To build it, clone this repository and type `lein uberjar` in a terminal, while in the root directory of the clone. The 'standalone' JAR file can be found in the 'target' directory.
 
 ## Usage
 
@@ -108,6 +108,22 @@ Adapter classes are ordinary classes, that have some simple rules.
 * The class needs to be declared _public_. If the class is a member of another class, it needs to be declared _static_ as well.
 
 ### Adapter resolution
+
+To have an idea which Adapter will be chosen at runtime (and how resolution conflicts are determined when using the checker), have a look at the following rules used by the tool. The Adapter selection is based on the type _where_ the injection takes place and the type of _what_ is requested to be injected.
+
+1. Check whether the _what_ type is a _where_ type (following the inheritance relations). If so, then we are done and the _what_ will be injected directly into the _where_. Otherwise, continue to 2.
+
+2. Determine all eligible Adapters, by filtering all available Adapters on (a) whether it implements/extends a (sub)type of the _where_ type, and (b) if it has a single-argument constructor taking a (syper)type of the _what_ type. Based on the filtered result, the resolution continues as follows:
+  * If none are found to be eligible, report this as an error (or throw a RuntimeException), for the injection cannot take place.
+  * If one is found, we are done and that Adapter will be used for injection. Continue to step 4.
+  * If more than one has been found, continue to step 3.
+
+3. Determine the "closest" Adapter. We take the eligible Adapters from step 2 and filter them once more, to see which are the closest. Closest here means, which Adapter has a single-argument constructor that takes a type closest to the _what_ type, when looking at the inheritance hierarchy, and if more than one are found to be equally close at this point, the same is done for the _where_ type. Based on the filtered results, the resolution continues as follows:
+  * If one is found (at least one is always found), we are done and that Adapter will be used. We continue at step 4.
+  * If more than one has been found, the framework cannot make a decision which Adapter to use and reports a resolution conflict error (or throws a RuntimeException).
+
+4. A (most) suitable Adapter has been found at this point, and if the tool is used in _checking_ mode, then we are done. If, however, the tool is used in _runtime_ mode, it will also determine the "closest" constructor of that Adapter, based on the _what_ type. This constructor will be used for instantiating the Adapter.
+  * It can occur that multiple constructors are equally close to the _what_ type. Currently, the constructor choice will be semi-random.
 
 ### Associations (.gluer files)
 
