@@ -107,7 +107,7 @@ Adapter classes are ordinary classes, that have some simple rules.
 
 * The single-argument non-primitive constructors determine __what__ an Adapter can "adapt". At least one such a constructor is required.
 
-* The class needs to be declared _public_. If the class is a member of another class, it needs to be declared _static_ as well.
+* The class needs to be declared _public_. If the class is a member of another class, it needs to be declared _static_ as well. The class cannot be abstract.
 
 ### Adapter resolution
 
