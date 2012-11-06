@@ -8,11 +8,10 @@
 ;;;; is used for the generating code that gets injected.
 
 (ns gluer.agent
-  (:require [gluer.logic :as l]
-            [gluer.resources :as r]
+  (:require [gluer.resources :as r]
             [gluer.runtime :as runtime]
             [gluer.config :as c]
-            [gluer.core :as core]
+            [gluer.core :as core] ;--- Remove core dependency.
             [clojure.string :as s])
   (:use     [gluer.clauses]
             [gluer.logging])
