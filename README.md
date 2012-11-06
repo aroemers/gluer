@@ -82,6 +82,8 @@ $ java -cp . -jar gluer.jar example.config
 No errors.
 ```
 
+Note that no classes (other than those of the tool itself) are actually loaded into the JVM, when the tool is used in _checking_ mode. This means that no static initialisation in the classes referenced by the Adapters and .gluer specification will take place.
+
 Since no errors are found, we can run our application using Gluer as a *runtime* framework:
 
 ```bash
