@@ -276,11 +276,13 @@
                  (when-not (adapter-library lower-class-name)
                     [(if (r/class-by-name lower-class-name)
                       (format not-adapter-error lower-class-name)
-                        (format not-found-error lower-class-name))]))
+                        (format not-found-error lower-class-name))])
+                 (when (= higher-class-name lower-class-name)
+                    "An Adapter cannot precede itself."))
          (map #(format-issue % file-name (line-nr precedence)))
          (hash-map :errors))))
 
-(defn check-precedences
+(defn check-precedences ;--- TODO: Check for circular precedence declarations.
   "Given a collection of file-precedence pairs, as returned by
   `gluer.resources/parsed-precedences', it will check each precedence 
   declaration. The function returns a map in the following form:

@@ -6,6 +6,8 @@ An Adapter-aware Dependency Injection Framework for Java.
 
 Gluer is a lightweight framework for injecting objects into other object's fields, where the injected object need not be type-compatible with the field's type. The injections are competely external, i.e. no changes in any of the classes are required. The framework uses specialised Adapter classes for type-incompatible injections.
 
+
+
 ## Example
 
 Let's look at a simple example. Say we have the following interface and class in one component:
@@ -91,9 +93,13 @@ $ java -cp . -javaagent:gluer.jar=example.config Client
 Archiving: something neat
 ```
 
+
+
 ## Building
 
 This project is written in Clojure 1.4. Building it requires [leiningen 2](https://github.com/technomancy/leiningen) to be installed. To build it, clone this repository and type `lein uberjar` in a terminal, while in the root directory of the clone. The 'standalone' JAR file can be found in the 'target' directory.
+
+
 
 ## Usage
 
@@ -109,6 +115,7 @@ Adapter classes are ordinary classes, that have some simple rules.
 
 * The class needs to be declared _public_. If the class is a member of another class, it needs to be declared _static_ as well. The class cannot be abstract.
 
+
 ### Adapter resolution
 
 To have an idea which Adapter will be chosen at runtime (and how resolution conflicts are determined when using the checker), have a look at the following rules used by the tool. The Adapter selection is based on the type _where_ the injection takes place and the type of _what_ is requested to be injected.
@@ -117,15 +124,20 @@ To have an idea which Adapter will be chosen at runtime (and how resolution conf
 
 2. Determine all eligible Adapters, by filtering all available Adapters on (a) whether it implements/extends a (sub)type of the _where_ type, and (b) if it has a single-argument constructor taking a (syper)type of the _what_ type. Based on the filtered result, the resolution continues as follows:
   * If none are found to be eligible, report this as an error (or throw a RuntimeException), for the injection cannot take place.
-  * If one is found, we are done and that Adapter will be used for injection. Continue to step 4.
+  * If one is found, we are done and that Adapter will be used for injection. Continue to step 5.
   * If more than one has been found, continue to step 3.
 
 3. Determine the "closest" Adapter. We take the eligible Adapters from step 2 and filter them once more, to see which are the closest. Closest here means, which Adapter has a single-argument constructor that takes a type closest to the _what_ type, when looking at the inheritance hierarchy, and if more than one are found to be equally close at this point, the same is done for the _where_ type. Based on the filtered results, the resolution continues as follows:
-  * If one is found (at least one is always found), we are done and that Adapter will be used. We continue at step 4.
-  * If more than one has been found, the framework cannot make a decision which Adapter to use and reports a resolution conflict error (or throws a RuntimeException).
+  * If one is found (at least one is always found), we are done and that Adapter will be used. We continue at step 5.
+  * If more than one has been found, continue to step 4.
 
-4. A (most) suitable Adapter has been found at this point, and if the tool is used in _checking_ mode, then we are done. If, however, the tool is used in _runtime_ mode, it will also determine the "closest" constructor of that Adapter, based on the _what_ type. This constructor will be used for instantiating the Adapter.
+4. Multiple Adapters are equally close. Now the tool looks at the declared precendences, if any. All equally close Adapters are filtered, by checking whether they are preceded by another Adapter in the list. If so, it will be removed from the list (It is removed at the end of this filtering process, so circular precedence rules would yield an empty list. Adding a check for circular precedence declarations is a future improvement).
+  * If this way the list has shrunk to one, we are done and that Adapter will be used. We continue at step 5.
+  * If, however, the list still contains two or more Adapters, the framework cannot make a decision which Adapter to use and reports a resolution conflict error (or throws a RuntimeException).
+
+5. A (most) suitable Adapter has been found at this point, and if the tool is used in _checking_ mode, then we are done. If, however, the tool is used in _runtime_ mode, it will also determine the "closest" constructor of that Adapter, based on the _what_ type. This constructor will be used for instantiating the Adapter.
   * It can occur that multiple constructors are equally close to the _what_ type. Currently, the constructor choice will be semi-random.
+
 
 ### Associations (.gluer files)
 
@@ -147,9 +159,17 @@ The following \<what\> clauses are currently supported:
 
 * `call <class>.<method>([argument expressions])`: Means a call to a static (non-void) method each time the \<where\> clause triggers an injection. The returned object is injected. This clause gives more expressive power, in case the former two \<where\> clauses are not sufficient. An example: `... call somepackage.SomeFactory.get(MyConfig.isProduction()) ...`.
 
-Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter\> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. Currently this is the only means to mitigate resolution conflicts.
+Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter\> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. This is one way to resolve resolution conflicts.
 
 An association might also specify injections that are type compatible. This is perfectly fine, and the runtime will inject the result of the \<what\> clause directly in the place designated by the \<where\> clause. Such a direct injection will still take place through the Gluer runtime (i.e., it cannot be optimised), because one can write associations that sometimes need an Adapter and sometimes do not, depending on the actual runtime type of the \<what\> clause (in particular the 'call' clause).
+
+Another way of resolving resolution conflicts, is to declare precedence rules. For example, the following declares that, if `PreferredAdapter` and `PrecededAdapter` are equally suitable for a particular association, the `PreferredAdapter` will be used:
+
+```
+declare precedence PreferredAdapter over PrecededAdapter
+```
+
+Precedence declarations and association statements can be mixed in a .gluer file, and their order does not matter.
 
 An example .gluer file:
 
@@ -159,7 +179,10 @@ associate field package.AClass.fieldFoo with new apackage.OtherClass using adapt
 associate field package.AClass.fieldBar with single expensive.InitialisingService
 
 associate field package.Alice.bob with call factories.Persons.create("Eve")
+
+declare precedence adapter.betterversion.Eve2Bob over adapter.firstversion.Eve2Bob
 ```
+
 
 ### Configuration (.config files)
 
@@ -171,8 +194,6 @@ The following keys are currently supported:
 
 * `glue`: The value specifies a .gluer file, relative to the configuration file. This key can be specified multiple times.
 * `verbose`: The value can be either 'true' or 'false'. If set to true, debug logging is displayed.
-* `plug-in`: The value specifies the namespace path to a plug-in file. See the section on 'Extending the framework' below. This key can be specified multiple times.
-* `classpath-entry`: The value specifies a class-path entry, which will be added to the standard classpath automatically. This key can be specified multiple times.
 
 An example .config file:
 
@@ -184,10 +205,6 @@ glue: path/to/file.gluer
 glue: paths/are/relative/from/the/config.file
 glue: more/colons:are:part/of/the.value
 
-plug-in: gluer.plugin.what-call
-
-classpath-entry: adapters.jar
-
 verbose: false
 ```
 
@@ -196,9 +213,10 @@ verbose: false
 
 ## Future improvements
 
-* Generics support
-* Plug-in system
-* Class-path entries in configuration
+* Generics and typed collections support. E.g. adapt a List\<Foo> to List\<Bar> by injecting a List\<Foo2Bar>
+* Statically check for circular precedence declarations
+* Statically check for possible resolution conflicts occuring during run-time due to actual subtypes of _what_ is injected.
+* Improved test suite, proving the correct implementation of implicit rules (such as adapter resolution) and correct coverage of static checks (such as detecting resolution conflicts).
 
 ## License and disclaimer
 
