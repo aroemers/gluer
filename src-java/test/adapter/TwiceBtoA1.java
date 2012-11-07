@@ -2,14 +2,14 @@ package test.adapter;
 
 import gluer.Adapter;
 import test.modela.A;
-import test.modelb.B;
+import test.modelb.TwiceB;
 
 @Adapter
 public class TwiceBtoA1 implements A {
 		
-	private B adaptee;
+	private TwiceB adaptee;
 
-	public TwiceBtoA1(B adaptee) {
+	public TwiceBtoA1(TwiceB adaptee) {
 		this.adaptee = adaptee;
 	}
 

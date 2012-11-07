@@ -22,7 +22,11 @@
   "No suitable Adapter found for adapting %s to %s.")
 
 (def resolution-conflict-error
-  "Resolution conflict for adapting %s to %s. Eligible adapters are %s")
+  (str "Resolution conflict for adapting %s to %s.\n"
+       "\tConflicting adapters are: %s.\n"
+       "\tThe closest adapters are: %s.\n"
+       "\tAdd a 'using' clause to the association, or declare precedence rules "
+       "for the closest adapters."))
 
 (def not-found-error
   "Adapter %s is not found. Make sure it is spelled correctly and is in the classpath.")
@@ -90,8 +94,12 @@
   `to-name', and an adapter library, an adapter name is returned that is eligible
   and closest to the supplied types. See `eligible-adapters' and `closest-adapters'
   for more info on this. The adapter name is return in a map with key :result.
-  If no suitable adapter is found, or a resolution error occured, the map 
-  contain an :error key."
+  If no suitable adapter is found, or a resolution conflict occured, the map 
+  contains an :error key.
+
+  Note that this function expects the adapter-library to hold a :precedence key,
+  which value should contain the map with precedence-relations as given by the
+  `gluer.resources/build-precedence-relations' function."
   [from-name to-name adapter-library]
   (let [eligible (eligible-adapters from-name to-name adapter-library)]
     (cond 
@@ -103,8 +111,15 @@
         (let [closest (closest-adapters from-name to-name eligible)]
           (if (= 1 (count closest)) 
             {:result (ffirst closest)}
-            {:error (format resolution-conflict-error from-name to-name 
-                            (apply str (interpose ", " (map first closest))))})))))
+            (let [precedence-relations (:precedence adapter-library)
+	                closest-names (set (keys closest))
+                  preferred (remove #(some closest-names (precedence-relations %)) closest-names)]
+              (if (= 1 (count preferred))
+                {:result (first preferred)}
+                {:error (format resolution-conflict-error from-name to-name 
+                                (apply str (interpose ", " preferred))
+                                (apply str (interpose ", " closest-names))
+                                (apply str (interpose ", " (keys eligible))))})))))))
 
 
 ;;; Checking utilities.
@@ -131,7 +146,7 @@
 
 ;;; Adapter checking functions.
 
-(defn check-adapter-library
+(defn check-adapter-library ;--- TODO: Check for possible resolution conflicts.
   "This function checks the adapter library for consistency. A map is returned,
   with possibly a :warnings key and/or an :errors key. The values of those keys
   consist of (possibly empty) sequences."
@@ -164,7 +179,7 @@
 (defn- check-association
   "This function checks a single filename-association pair. It checks the 
   individual clauses and, if no issues were found, continues to check the whole 
-  association regarding finding a suitable adapter. The functions returns a map
+  association regarding finding a suitable adapter. The function returns a map
   in the following form:
 
   {:warnings (\"Some warning\")
@@ -205,9 +220,14 @@
                 {:errors (when error [(format-issue error file-name (line-nr where))])
                  :warnings (when warning [(format-issue warning file-name (line-nr where))])}))))))
 
-(defn- check-overlaps
+(defn- check-association-overlaps
   "This functions checks all filename-association pairs for overlap conflicts.
-  The return value is a (possibly empty) sequence with error messages."
+  The function returns a map in the following form:
+
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
   [file-associations]
   ;; Loop through the associations, and check overlap with all the other associations AFTER it.
   ;; This way, no two associations are checked twice.
@@ -220,28 +240,70 @@
                                 this-file (line-nr this-assoc) that-file (line-nr that-assoc)
                                 error-msg)))]
         (recur (rest associations) (concat errors-accum errors)))
-      (remove nil? errors-accum))))
+      {:errors (remove nil? errors-accum)})))
 
-(defn- check-valid-files
-  "Given a collection of succesfully parsed files and a valid adapter library,
-  this function will check all associations. The return value is a merged map of
-  all the results given by the 'check-association' function."
-  [valid-files adapter-library]
-  ;; The symbol file-associations will refer to a single sequence of filename-association pairs.
-  (let [file-associations (r/parsed-associations valid-files)
-        individual-check-results (map #(check-association % adapter-library) file-associations)
-        overlap-check-results (check-overlaps file-associations)]
-    ;; Merge all the {:errors [..] :warnings [..]} maps, and add the overlap errors to it.
-    (-> (reduce (partial merge-with concat) individual-check-results)
-        (update-in [:errors] concat overlap-check-results))))
+(defn check-associations
+  "Given a collection of file-association pairs, as returned by
+  `gluer.resources/parsed-associations', it will check each association. The 
+  function returns a map in the following form:
 
-(defn check-gluer-files
-  "Given the parse results of the gluer files (as returned by 
-  `gluer.resources/parse-gluer-files'), this function checks for warnings and 
-  errors in them. Parse errors are reported as well, and succesfully parsed
-  files will be checked (even if other files have parse errors)."
-  [parsed-gluer-files adapter-library]
-  (let [{valid :succes failed :error} (group-by (comp ffirst :parsed) parsed-gluer-files)
-        parse-errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) failed)]
-    (-> (check-valid-files valid adapter-library)
-        (update-in [:errors] concat parse-errors))))
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
+  [file-associations adapter-library]
+  (let [association-check-results (map #(check-association % adapter-library) file-associations)
+        association-overlap-results (check-association-overlaps file-associations)]
+    ;; Merge the {:errors [..] :warnings [..]} maps.
+    (reduce (partial merge-with concat) 
+            (conj association-check-results association-overlap-results))))
+
+(defn- check-precedence
+  "This functions checks a single file-precedence pair, given an adapter
+  library. The function returns a map in the following form:
+
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
+  [[file-name precedence] adapter-library]
+  (let [higher-class-name (get-in precedence [:higher :class :word])
+        lower-class-name (get-in precedence [:lower :class :word])]
+    (->> (concat (when-not (adapter-library higher-class-name)
+                    [(if (r/class-by-name higher-class-name)
+                       (format not-adapter-error higher-class-name)
+                       (format not-found-error higher-class-name))])
+                 (when-not (adapter-library lower-class-name)
+                    [(if (r/class-by-name lower-class-name)
+                      (format not-adapter-error lower-class-name)
+                        (format not-found-error lower-class-name))]))
+         (map #(format-issue % file-name (line-nr precedence)))
+         (hash-map :errors))))
+
+(defn check-precedences
+  "Given a collection of file-precedence pairs, as returned by
+  `gluer.resources/parsed-precedences', it will check each precedence 
+  declaration. The function returns a map in the following form:
+
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
+  [file-precedences adapter-library]
+  (let [precedence-check-results (map #(check-precedence % adapter-library) file-precedences)]
+    ;; Merge the {:errors [..] :warnings [..]} maps.
+    (reduce (partial merge-with concat) precedence-check-results)))
+
+(defn check-parse-results
+  "Given the parse results by `gluer.resources/parse-gluer-files', this checks
+  if some of the files failed to parse. The function returns a map in the 
+  following form:
+
+  {:warnings (\"Some warning\")
+   :errors (\"Some error\" \"Another error\")}
+
+  The map values may be empty, which means no warnings and/or errors."
+  [parsed-gluer-files]
+  (let [failed (filter (comp :error :parsed) parsed-gluer-files)]
+    {:errors (map #(str (get-in % [:parsed :file-name]) ": " (get-in % [:parsed :error])) 
+                  failed)}))

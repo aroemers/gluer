@@ -55,7 +55,7 @@
   [issues type]
   (let [prefix ({:warning "Warning" :error "Error"} type)]
     (doseq [issue issues]
-      (println (format "%s: %s" prefix issue)))))
+      (println (format "%s: %s" prefix issue) "\n"))))
 
 (defn- do-check ;--- This do-check approach could also be solved using monads.
   "This function can be wrapped around another function. If the returned value
@@ -77,17 +77,32 @@
   "The main check function that directs the checking process."
   [gluer-file-names]
   (try
-    (let [_   (log-verbose "Looking up Adapters...")
+    (let [_ (log-verbose "Looking up Adapters...")
           adapter-library (r/build-adapter-library)
-          _   (log-verbose "Adapter library:" adapter-library)
-          _   (log-verbose "Checking adapter library data..." adapter-library)
+          _ (log-verbose "Adapter library:" adapter-library)
+
+          _ (log-verbose "Checking adapter library data...")
           _ (do-check (l/check-adapter-library adapter-library))
-          _   (log-verbose "Parsing .gluer files...")
+
+          _ (log-verbose "Parsing .gluer files...")
           parsed-files (r/parse-gluer-files gluer-file-names)
-          _   (log-verbose "Parsed .gluer files:" parsed-files)
-          _   (log-verbose "Checking parsed .gluer files data...")
-          _ (do-check (l/check-gluer-files parsed-files adapter-library))
-          _   (log-verbose "Done checking.")]
+          _ (log-verbose "Parsed .gluer files:" parsed-files)
+          _ (log-verbose "Checking for parse errors...")
+          _ (do-check (l/check-parse-results parsed-files))
+
+          _ (log-verbose "Checking precedence declarations...")
+          parsed-precedences (r/parsed-precedences parsed-files)
+          _ (do-check (l/check-precedences parsed-precedences adapter-library))
+
+          _ (log-verbose "Building precedence relations...")
+          precedence-relations (r/build-precedence-relations parsed-precedences)
+          _ (log-verbose "Precedence relations:" precedence-relations)
+          _ (log-verbose "Checking associations...")
+          adapter-library (assoc adapter-library :precedence precedence-relations)
+          parsed-associations (r/parsed-associations parsed-files)
+          _ (do-check (l/check-associations parsed-associations adapter-library))
+
+          _ (log-verbose "Done checking.")]
       (println "No errors."))
     (catch InterruptedException ex 
       (println "Errors detected. Fix above errors and re-run the check."))))

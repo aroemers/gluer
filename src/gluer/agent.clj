@@ -110,7 +110,9 @@
             ;; No parse errors, so build the libraries and initialise the agent.
             (let [file-associations (r/parsed-associations parsed)
                   transformation-library (build-transformation-library file-associations)
-                  adapter-library (r/build-adapter-library)
+                  file-precedences (r/parsed-precedences parsed)
+                  precedence-relations (r/build-precedence-relations file-precedences)
+                  adapter-library (assoc (r/build-adapter-library) :precedence precedence-relations)
                   transformer (transformer transformation-library)]
               (log-verbose "Transformation library:" transformation-library)
               (log-verbose "Adapter library:" adapter-library)

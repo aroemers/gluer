@@ -119,7 +119,7 @@
   (or (= this that) ((apply union (leveled-supertypes-of this)) that)))
 
 
-;;; Building the adapter library.
+;;; Building the adapter library and precedence relations.
 
 (defn build-adapter-library
   "Based on a collection of fully qualified class names, this functions returns
@@ -151,6 +151,24 @@
             {adapter-class-name {:adapts-from adapts-from
                                  :adapts-to adapts-to}}))
        (apply merge)))
+
+(defn build-precedence-relations
+  "Given a collection of filename-precedence pairs (as given by the 
+  `parsed-precedences' function), return a map where the keys are those
+  adapter class-names that are preceded by other adapters. The value of such a 
+  key is a set with class-names that have precedence over that particular 
+  adapter. For example:
+
+  {\"preceded.Adapter\" #{\"by.some.preferred.Adapter\" \"and.ByThis\"}
+   ...}"
+  [file-precedences]
+  (loop [precedences (map second file-precedences)
+         accum {}]
+    (if-let [precedence (first precedences)]
+      (let [higher (get-in precedence [:higher :class :word])
+            lower (get-in precedence [:lower :class :word])]
+        (recur (rest precedences) (update-in accum [lower] #(set (conj % higher)))))
+      accum)))
 
 
 ;;; Parsing the .gluer files and building the association library
@@ -220,11 +238,11 @@
 
   Unsuccesfully parsed files are ignored."
   [parse-result k]
-  (for [{:keys [file-name parsed]} parse-result
-        :let [toplevel (get-in parsed [:succes :root :toplevel])
-              filtered (remove nil? (map k toplevel))]
-        item filtered]
-    [file-name item]))
+  (set (for [{:keys [file-name parsed]} parse-result
+             :let [toplevel (get-in parsed [:succes :root :toplevel])
+                   filtered (remove nil? (map k toplevel))]
+             item filtered]
+         [file-name item])))
 
 (defn parsed-associations
   "Given the parse result as given by the `parse-gluer-files' function, returns
@@ -253,17 +271,3 @@
   Unsuccesfully parsed files are ignored."
   [parse-result]
   (toplevel-items parse-result :precedence))
-
-; (defn build-association-library
-;   "Given a collection of parse-trees of .gluer files according to the `rules'
-;   above (including the :succes key), returns a set of associations found in all
-;   of the parse trees."
-;   [parsed-gluer-files]
-;   (toplevel-items parsed-gluer-files :association))
-
-; (defn build-precedence-library
-;   "Given a collection of parse-trees of .gluer files according to the `rules'
-;   above (including the :succes key), returns a set of precedende declarations
-;   found in all of the parse trees."
-;   [parsed-gluer-files]
-;   (toplevel-items parsed-gluer-files :precedence))

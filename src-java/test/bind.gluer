@@ -4,4 +4,7 @@ associate field test.Main.superA with call test.modelb.ModelFactory.get()
 
 associate field test.Main.superSuperA with single test.modelb.SubSubB using test.adapter.BtoA$BtoA_Inner
 
+
+declare precedence test.adapter.TwiceBtoA1 over test.adapter.TwiceBtoA2
+
 associate field test.Main.twice with new test.modelb.TwiceB
