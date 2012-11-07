@@ -3,3 +3,5 @@ associate field test.Main.a with new test.modela.ConcreteA
 associate field test.Main.superA with call test.modelb.ModelFactory.get()
 
 associate field test.Main.superSuperA with single test.modelb.SubSubB using test.adapter.BtoA$BtoA_Inner
+
+associate field test.Main.twice with new test.modelb.TwiceB

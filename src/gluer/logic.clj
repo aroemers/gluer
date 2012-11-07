@@ -228,9 +228,7 @@
   all the results given by the 'check-association' function."
   [valid-files adapter-library]
   ;; The symbol file-associations will refer to a single sequence of filename-association pairs.
-  (let [file-associations (for [file valid-files
-                                association (get-in file [:parsed :succes :associations :association])]
-                            [(:file-name file) association])
+  (let [file-associations (r/parsed-associations valid-files)
         individual-check-results (map #(check-association % adapter-library) file-associations)
         overlap-check-results (check-overlaps file-associations)]
     ;; Merge all the {:errors [..] :warnings [..]} maps, and add the overlap errors to it.

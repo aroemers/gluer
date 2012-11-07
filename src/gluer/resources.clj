@@ -163,19 +163,27 @@
 
 (def rules
   "The parse rules for .gluer files."
-  {; Basic rules
-   :associations [:association*]
+  {;; Root rule
+   :root [:toplevel*]
+   :toplevel #{ :precedence :association }
+
+   ;; Precedence rules
+   :precedence ["declare" "precedence" :higher "over" :lower]
+   :higher [:class]
+   :lower [:class]
+
+   ;; Association rules
    :association ["associate" :where "with" :what :using?]
    :where #{ :where-clause-field }
    :what #{ :what-clause-new :what-clause-call :what-clause-single}
    :using ["using" :class]
    :class (re-pattern (str package-pattern "?" class-pattern))
    
-   ; Where clauses
+   ;; Where clauses
    :where-clause-field ["field" :field]
    :field (re-pattern (str package-pattern "?" class-pattern "\\." member-pattern))
 
-   ; What clauses
+   ;; What clauses
    :what-clause-new ["new" :class]
 
    :what-clause-call ["call" :method]
@@ -197,12 +205,65 @@
   (for [file-name gluer-file-names]
     {:file-name file-name
      :parsed (try 
-                (p/parse rules :associations (slurp file-name))
+                (p/parse rules :root (slurp file-name))
                 (catch Exception ex {:error (str "Error parsing file: " ex)}))}))
 
-(defn build-association-library
-  "Given a collection of parse-trees of .gluer files according to the `rules'
-  above (including the :succes key), returns a set of associations found in all
-  of the parse trees."
-  [parsed-gluer-files]
-  (set (mapcat #(get-in % [:succes :associations :association]) parsed-gluer-files)))
+(defn- toplevel-items
+  "Given the parse result as given by the `parse-gluer-files' function, returns
+  a set containing the toplevel items as identified by key `k'. Each item in the
+  set is a filename-item pair. So, the return value has the following form: 
+
+  #{ [\"filename\" value-of-k] 
+     [\"filename\" value-of-k]
+     [\"otherfile\" value-of-k]
+     ... }
+
+  Unsuccesfully parsed files are ignored."
+  [parse-result k]
+  (for [{:keys [file-name parsed]} parse-result
+        :let [toplevel (get-in parsed [:succes :root :toplevel])
+              filtered (remove nil? (map k toplevel))]
+        item filtered]
+    [file-name item]))
+
+(defn parsed-associations
+  "Given the parse result as given by the `parse-gluer-files' function, returns
+  a set containing filename-association pairs. The return value has the 
+  following form: 
+
+  #{ [\"filename\" {:where {...} :what {...} ... }] 
+     [\"filename\" {:where {...} :what {...} ... }] 
+     [\"otherfile\" {:where {...} :what {...} ... }] 
+     ... }
+
+  Unsuccesfully parsed files are ignored."
+  [parse-result]
+  (toplevel-items parse-result :association))
+
+(defn parsed-precedences
+  "Given the parse result as given by the `parse-gluer-files' function, returns
+  a set containing filename-precedence pairs. The return value has the 
+  following form: 
+
+  #{ [\"filename\" {:higher {...} :lower {...} }] 
+     [\"filename\" {:higher {...} :lower {...} }]
+     [\"otherfile\" {:higher {...} :lower {...} }]
+     ... }
+
+  Unsuccesfully parsed files are ignored."
+  [parse-result]
+  (toplevel-items parse-result :precedence))
+
+; (defn build-association-library
+;   "Given a collection of parse-trees of .gluer files according to the `rules'
+;   above (including the :succes key), returns a set of associations found in all
+;   of the parse trees."
+;   [parsed-gluer-files]
+;   (toplevel-items parsed-gluer-files :association))
+
+; (defn build-precedence-library
+;   "Given a collection of parse-trees of .gluer files according to the `rules'
+;   above (including the :succes key), returns a set of precedende declarations
+;   found in all of the parse trees."
+;   [parsed-gluer-files]
+;   (toplevel-items parsed-gluer-files :precedence))

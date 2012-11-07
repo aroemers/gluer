@@ -22,12 +22,14 @@
 ;;; Helper functions.
 
 (defn- build-transformation-library
-  "Based on an association library, builds a map with a fully qualified class
-  name as key and a set of associations that transform that class as a value.
-  For example: {\"test.NativeClient\" #{{:where ... :what ...} ...}}"
-  [association-library]
+  "Based on a set of filename-assocation pairs, builds a map with a fully 
+  qualified class name as key and a set of associations that transform that 
+  class as a value. For example: 
+
+  {\"test.NativeClient\" #{{:where ... :what ...} ...}}"
+  [file-associations]
   (apply merge-with (comp set concat)
-    (for [association association-library]
+    (for [[file-name association] file-associations]
       (let [transforms (transforms-classes association)]
         (zipmap transforms (repeat (hash-set association)))))))
 
@@ -106,8 +108,8 @@
                                    (:error (:parsed error)))))
                 (System/exit 1))
             ;; No parse errors, so build the libraries and initialise the agent.
-            (let [association-library (r/build-association-library (map :parsed parsed))
-                  transformation-library (build-transformation-library association-library)
+            (let [file-associations (r/parsed-associations parsed)
+                  transformation-library (build-transformation-library file-associations)
                   adapter-library (r/build-adapter-library)
                   transformer (transformer transformation-library)]
               (log-verbose "Transformation library:" transformation-library)

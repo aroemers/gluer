@@ -13,6 +13,7 @@ public class Main {
 	private SuperSuperA superSuperA;
 	private SuperA superA;
 	private A a;
+	private A twice;
 	private SubA subA;
 
 	public Main(final String[] args) throws Exception {
