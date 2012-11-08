@@ -127,13 +127,16 @@ To have an idea which Adapter will be chosen at runtime (and how resolution conf
   * If one is found, we are done and that Adapter will be used for injection. Continue to step 5.
   * If more than one has been found, continue to step 3.
 
+
 3. Determine the "closest" Adapter. We take the eligible Adapters from step 2 and filter them once more, to see which are the closest. Closest here means, which Adapter has a single-argument constructor that takes a type closest to the _what_ type, when looking at the inheritance hierarchy, and if more than one are found to be equally close at this point, the same is done for the _where_ type. Based on the filtered results, the resolution continues as follows:
   * If one is found (at least one is always found), we are done and that Adapter will be used. We continue at step 5.
   * If more than one has been found, continue to step 4.
 
+
 4. Multiple Adapters are equally close. Now the tool looks at the declared precendences, if any. All equally close Adapters are filtered, by checking whether they are preceded by another Adapter in the list. If so, it will be removed from the list (It is removed at the end of this filtering process, so circular precedence rules would yield an empty list. Adding a check for circular precedence declarations is a future improvement).
   * If this way the list has shrunk to one, we are done and that Adapter will be used. We continue at step 5.
   * If, however, the list still contains two or more Adapters, the framework cannot make a decision which Adapter to use and reports a resolution conflict error (or throws a RuntimeException).
+
 
 5. A (most) suitable Adapter has been found at this point, and if the tool is used in _checking_ mode, then we are done. If, however, the tool is used in _runtime_ mode, it will also determine the "closest" constructor of that Adapter, based on the _what_ type. This constructor will be used for instantiating the Adapter.
   * It can occur that multiple constructors are equally close to the _what_ type. Currently, the constructor choice will be semi-random.
@@ -147,21 +150,21 @@ The injections (called associations) are in specified in .gluer files. Each asso
 associate <where> with <what> [using <adapter>]
 ```
 
-The following \<where\> clauses are currently supported :
+The following \<where> clauses are currently supported :
 
-* `field <class>.<field>`: Means injecting the object into the \<field\> of every instance of the specified \<class\>. An example: `... field somepackage.SomeClass.aField ...`.
+* `field <class>.<field>`: Means injecting the object into the \<field> of every instance of the specified \<class>. The injection takes place when a constructor of the specified class is called. The injection only takes place once, even if a constructor calls another constructor. The injected object is available to the statements and expressions in the constructor's body. Note that the field where the object is injected in, can be overwritten, either in the constructor or in some other method. An example: `... field somepackage.SomeClass.aField ...`.
 
-The following \<what\> clauses are currently supported:
+The following \<what> clauses are currently supported:
 
-* `new <class>`: Means injecting a new instance of the specified \<class\> each time the \<where\> clause triggers an injection. The class should have a non-argument constructor. An example: `... new somepackage.SomeClass ...`.
+* `new <class>`: Means injecting a new instance of the specified \<class> each time the \<where> clause triggers an injection. The class should have a non-argument constructor. An example: `... new somepackage.SomeClass ...`.
 
-* `single <class>`: Means injecting a single instance of the specified \<class\> each time the \<where\> clause triggers an injection. In other words, the Gluer runtime instantiates the class only once and reuses it for every injection done by this association. The class should have a non-argument constructor. An example: `... single somepackage.SomeClass ...`.
+* `single <class>`: Means injecting a single instance of the specified \<class> each time the \<where> clause triggers an injection. In other words, the Gluer runtime instantiates the class only once and reuses it for every injection done by this association. The class should have a non-argument constructor. An example: `... single somepackage.SomeClass ...`.
 
-* `call <class>.<method>([argument expressions])`: Means a call to a static (non-void) method each time the \<where\> clause triggers an injection. The returned object is injected. This clause gives more expressive power, in case the former two \<where\> clauses are not sufficient. An example: `... call somepackage.SomeFactory.get(MyConfig.isProduction()) ...`.
+* `call <class>.<method>([argument expressions])`: Means a call to a static (non-void) method each time the \<where> clause triggers an injection. The returned object is injected. This clause gives more expressive power, in case the former two \<where> clauses are not sufficient. An example: `... call somepackage.SomeFactory.get(MyConfig.isProduction()) ...`.
 
-Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter\> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. This is one way to resolve resolution conflicts.
+Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. This is one way to resolve resolution conflicts.
 
-An association might also specify injections that are type compatible. This is perfectly fine, and the runtime will inject the result of the \<what\> clause directly in the place designated by the \<where\> clause. Such a direct injection will still take place through the Gluer runtime (i.e., it cannot be optimised), because one can write associations that sometimes need an Adapter and sometimes do not, depending on the actual runtime type of the \<what\> clause (in particular the 'call' clause).
+An association might also specify injections that are type compatible. This is perfectly fine, and the runtime will inject the result of the \<what> clause directly in the place designated by the \<where> clause. Such a direct injection will still take place through the Gluer runtime (i.e., it cannot be optimised), because one can write associations that sometimes need an Adapter and sometimes do not, depending on the actual runtime type of the \<what> clause (in particular the 'call' clause).
 
 Another way of resolving resolution conflicts, is to declare precedence rules. For example, the following declares that, if `PreferredAdapter` and `PrecededAdapter` are equally suitable for a particular association, the `PreferredAdapter` will be used:
 
@@ -213,10 +216,14 @@ verbose: false
 
 ## Future improvements
 
+The following points are possible future improvements. In no particular order:
+
 * Generics and typed collections support. E.g. adapt a List\<Foo> to List\<Bar> by injecting a List\<Foo2Bar>
 * Statically check for circular precedence declarations
 * Statically check for possible resolution conflicts occuring during run-time due to actual subtypes of _what_ is injected.
-* Improved test suite, proving the correct implementation of implicit rules (such as adapter resolution) and correct coverage of static checks (such as detecting resolution conflicts).
+* Improved test suite, proving the correct implementation of implicit rules (such as adapter resolution) and correct coverage of static checks (such as detecting resolution conflicts)
+* Injection in static fields
+* Research possible means of disabling statements that overwrite the injected object
 
 ## License and disclaimer
 
