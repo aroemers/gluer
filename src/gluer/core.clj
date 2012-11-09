@@ -67,9 +67,9 @@
   (let [warnings (:warnings value)
         errors (:errors value)]
     (when (not (empty? warnings))
-      (print-issues (if (seq? warnings) warnings (list warnings)) :warning))
+      (print-issues (if (coll? warnings) warnings (list warnings)) :warning))
     (when (not (empty? errors))
-      (print-issues (if (seq? errors) errors (list errors)) :error)
+      (print-issues (if (coll? errors) errors (list errors)) :error)
       (throw (InterruptedException.))))
   value)
 
@@ -97,6 +97,9 @@
           _ (log-verbose "Building precedence relations...")
           precedence-relations (r/build-precedence-relations parsed-precedences)
           _ (log-verbose "Precedence relations:" precedence-relations)
+          _ (log-verbose "Checking precedence relations for cycles...")
+          _ (do-check (l/check-precedence-relations precedence-relations))
+          
           _ (log-verbose "Checking associations...")
           adapter-library (assoc adapter-library :precedence precedence-relations)
           parsed-associations (r/parsed-associations parsed-files)

@@ -133,8 +133,9 @@ To have an idea which Adapter will be chosen at runtime (and how resolution conf
   * If more than one has been found, continue to step 4.
 
 
-4. Multiple Adapters are equally close. Now the tool looks at the declared precendences, if any. All equally close Adapters are filtered, by checking whether they are preceded by another Adapter in the list. If so, it will be removed from the list (It is removed at the end of this filtering process, so circular precedence rules would yield an empty list. Adding a check for circular precedence declarations is a future improvement).
+4. Multiple Adapters are equally close. Now the tool looks at the declared precendences, if any. All equally close Adapters are filtered, by checking whether they are preceded by another Adapter in the list. If so, it will be removed from the list (It is removed at the end of this filtering process, so circular precedence rules would yield an empty list).
   * If this way the list has shrunk to one, we are done and that Adapter will be used. We continue at step 5.
+  * If the list is empty, this signifies circular precedence declarations. These circular precedence declarations are already reported as warnings, by the checker, _before_ adapter resolution. If it actually occurs _during_ adapter resolution, it reports an error (or throws a RuntimeException).
   * If, however, the list still contains two or more Adapters, the framework cannot make a decision which Adapter to use and reports a resolution conflict error (or throws a RuntimeException).
 
 
@@ -172,7 +173,9 @@ Another way of resolving resolution conflicts, is to declare precedence rules. F
 declare precedence PreferredAdapter over PrecededAdapter
 ```
 
-Precedence declarations and association statements can be mixed in a .gluer file, and their order does not matter.
+In _checking_ mode, circular precedence declarations are detected and reported as warnings. If, however, an association statement may be hindered by these circular precedence declarations, an error is reported. Note that not all such errors can be detected statically, so it is good to pay attention to the warnings.
+
+Precedence declarations and association statements can be mixed in a .gluer file, and their order does not matter. 
 
 An example .gluer file:
 
@@ -219,7 +222,6 @@ verbose: false
 The following points are possible future improvements. In no particular order:
 
 * Generics and typed collections support. E.g. adapt a List\<Foo> to List\<Bar> by injecting a List\<Foo2Bar>
-* Statically check for circular precedence declarations
 * Statically check for possible resolution conflicts occuring during run-time due to actual subtypes of _what_ is injected.
 * Improved test suite, proving the correct implementation of implicit rules (such as adapter resolution) and correct coverage of static checks (such as detecting resolution conflicts)
 * Injection in static fields

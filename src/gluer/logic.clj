@@ -28,6 +28,10 @@
        "\tAdd a 'using' clause to the association, or declare precedence rules "
        "for the closest adapters."))
 
+(def precedence-error
+  (str "Resolution conflict due to cyclic precedence declarations, see warnings above.\n"
+       "\tConflicting adapters are: %s."))
+
 (def not-found-error
   "Adapter %s is not found. Make sure it is spelled correctly and is in the classpath.")
 
@@ -114,12 +118,15 @@
             (let [precedence-relations (:precedence adapter-library)
 	                closest-names (set (keys closest))
                   preferred (remove #(some closest-names (precedence-relations %)) closest-names)]
-              (if (= 1 (count preferred))
-                {:result (first preferred)}
-                {:error (format resolution-conflict-error from-name to-name 
-                                (apply str (interpose ", " preferred))
-                                (apply str (interpose ", " closest-names))
-                                (apply str (interpose ", " (keys eligible))))})))))))
+              (cond
+                (empty? preferred)
+                  {:error (format precedence-error (apply str (interpose ", " closest-names)))}
+                (= 1 (count preferred))
+                  {:result (first preferred)}
+                :otherwise
+                  {:error (format resolution-conflict-error from-name to-name 
+                                  (apply str (interpose ", " preferred))
+                                  (apply str (interpose ", " closest-names)))})))))))
 
 
 ;;; Checking utilities.
@@ -282,7 +289,7 @@
          (map #(format-issue % file-name (line-nr precedence)))
          (hash-map :errors))))
 
-(defn check-precedences ;--- TODO: Check for circular precedence declarations.
+(defn check-precedences
   "Given a collection of file-precedence pairs, as returned by
   `gluer.resources/parsed-precedences', it will check each precedence 
   declaration. The function returns a map in the following form:
@@ -295,6 +302,77 @@
   (let [precedence-check-results (map #(check-precedence % adapter-library) file-precedences)]
     ;; Merge the {:errors [..] :warnings [..]} maps.
     (reduce (partial merge-with concat) precedence-check-results)))
+
+(defn- check-precedence-cycle ;--- It was easier to write this specific code, than to use/create a
+                              ;    graph library. Maybe fix this when other graphs are needed.
+  "Given a map with precedence relations, a starting key (name) and a set
+  holding the current path (initially empty), the function recursively checks 
+  whether it can detect a cycle. The function returns a pair, where the first 
+  item is the list of keys it has visited, and the second item is a boolean
+  indicating whether there was a cycle in visiting those keys.
+
+  For instance, when called with the following arguments:
+
+    precedence-relations: {\"A\" #{\"B\"}
+                           \"B\" #{\"C\"}}
+    name:                 \"A\"
+    path:                 #{}
+
+  It would return:
+
+    [(\"A\" \"B\") false]
+
+  If no cycle was found, the full tree has been visited. Otherwise, part of the
+  tree may be unvisited. Note that the precedence-relations may consist of
+  multiple trees."
+  [precedence-relations name path]
+  ;; Check if node (name) has 'edges' to other nodes.
+  (if-let [precedes (precedence-relations name)]
+    ;; Loop through edges.
+    (loop [ps precedes
+           visited []]
+      (if-let [p (first ps)]
+        ;; Check if the node on the other end of the edge has already been visited.
+        (if (path p)
+          ;; Already visisted, cycle detected. Stop here.
+          [[name] true]
+          ;; Not visited yet, recursively check it for cycles.
+          (let [[visit cycle?] (check-precedence-cycle precedence-relations p (conj path name))]
+            ;; Check if cycle was detected.
+            (if cycle?
+              ;; Cycles detected, stop here.
+              [(conj (concat visit visited) name) true]
+              ;; No cycle detected yet, continue to visit other edges.
+              (recur (rest ps) (concat visit visited)))))
+        ;; Done visisting edges, no cycle detected.
+        [(conj visited name) false]))
+    ;; No edges found, consider this node not visited and no cycle detected.
+    [[] false]))
+
+(defn check-precedence-relations
+  "Given a map with precedence relations (as returned by 
+  `gluer.resources/build-precedence-relations'), this function checks if there
+  are cycles in these precedence relations. The function returns the detected
+  cycle messages in a collection in a map under the :warnings key:
+
+  {:warnings (\"Cycle detected ..\" \"Cycle detected ..\" ...)}"
+  [precedence-relations]
+  ;; Loop through all 'trees' of precedence relations. Start with the entire 'forest' and 0 warnings.
+  (loop [prels precedence-relations
+         warnings []]
+    ;; Check if any tree is left unchecked.
+    (if (empty? prels)
+      ;; All trees checked, returns accumulated warnings.
+      {:warnings warnings}
+      ;; Some tree(s) unchecked, check the current graph for cycles, starting from some random node.
+      (let [[visited cycle?] (check-precedence-cycle prels (first (keys prels)) #{})]
+        ;; Remove visited nodes from graph, accumulate a warning if a cycle was detected and loop.
+        (recur (apply dissoc prels visited)
+               (if cycle? 
+                 (conj warnings 
+                       (str "Cycle detected in precedence relations for adapters: " 
+                            (apply str (interpose ", " visited)) "."))
+                 warnings))))))
 
 (defn check-parse-results
   "Given the parse results by `gluer.resources/parse-gluer-files', this checks
