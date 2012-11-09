@@ -29,7 +29,7 @@
        "for the closest adapters."))
 
 (def precedence-error
-  (str "Resolution conflict due to cyclic precedence declarations, see warnings above.\n"
+  (str "Resolution conflict due to cyclic precedence declarations.\n"
        "\tConflicting adapters are: %s."))
 
 (def not-found-error
@@ -322,9 +322,9 @@
 
     [(\"A\" \"B\") false]
 
-  If no cycle was found, the full tree has been visited. Otherwise, part of the
-  tree may be unvisited. Note that the precedence-relations may consist of
-  multiple trees."
+  If no cycle was found, the full component (containing the starting key, name)
+  has been visited. Otherwise, part of the component may be unvisited. Note that
+  the precedence-relations graph may consist of multiple components."
   [precedence-relations name path]
   ;; Check if node (name) has 'edges' to other nodes.
   (if-let [precedes (precedence-relations name)]
@@ -352,21 +352,23 @@
 (defn check-precedence-relations
   "Given a map with precedence relations (as returned by 
   `gluer.resources/build-precedence-relations'), this function checks if there
-  are cycles in these precedence relations. The function returns the detected
+  are cycles in these precedence relations (the precedence relations map can be
+  seen as a simple, directed graph). The function returns the detected
   cycle messages in a collection in a map under the :warnings key:
 
   {:warnings (\"Cycle detected ..\" \"Cycle detected ..\" ...)}"
   [precedence-relations]
-  ;; Loop through all 'trees' of precedence relations. Start with the entire 'forest' and 0 warnings.
+  ;; Loop through all components of the precedence relations graph. Start with the entire graph
+  ;; and 0 warnings.
   (loop [prels precedence-relations
          warnings []]
-    ;; Check if any tree is left unchecked.
+    ;; Check if any component is left unchecked.
     (if (empty? prels)
-      ;; All trees checked, returns accumulated warnings.
+      ;; All components checked, returns accumulated warnings.
       {:warnings warnings}
-      ;; Some tree(s) unchecked, check the current graph for cycles, starting from some random node.
+      ;; Some component(s) unchecked, check the current graph for cycles, starting from some random node.
       (let [[visited cycle?] (check-precedence-cycle prels (first (keys prels)) #{})]
-        ;; Remove visited nodes from graph, accumulate a warning if a cycle was detected and loop.
+        ;; Remove visited nodes from graph, accumulate a warning if a cycle was detected and recur.
         (recur (apply dissoc prels visited)
                (if cycle? 
                  (conj warnings 
