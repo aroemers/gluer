@@ -157,11 +157,11 @@ The following \<where> clauses are currently supported :
 
 The following \<what> clauses are currently supported:
 
-* `new <class>`: Means injecting a new instance of the specified \<class> each time the \<where> clause triggers an injection. The class should have a non-argument constructor. An example: `... new somepackage.SomeClass ...`.
+* `new <class>`: Means injecting a new instance of the specified \<class> each time the \<where> clause triggers an injection. The class must have a non-argument constructor. An example: `... new somepackage.SomeClass ...`.
 
-* `single <class>`: Means injecting a single instance of the specified \<class> each time the \<where> clause triggers an injection. In other words, the Gluer runtime instantiates the class only once and reuses it for every injection done by this association. The class should have a non-argument constructor. An example: `... single somepackage.SomeClass ...`.
+* `single <class>`: Means injecting a single instance of the specified \<class> each time the \<where> clause triggers an injection. In other words, the Gluer runtime instantiates the class only once and reuses it for every injection done by this association. The class must have a non-argument constructor. An example: `... single somepackage.SomeClass ...`.
 
-* `call <class>.<method>([argument expressions])`: Means a call to a static (non-void) method each time the \<where> clause triggers an injection. The returned object is injected. This clause gives more expressive power, in case the former two \<where> clauses are not sufficient. An example: `... call somepackage.SomeFactory.get(MyConfig.isProduction()) ...`.
+* `call <class>.<method>([argument expressions])`: Means a call to a static (non-void) method each time the \<where> clause triggers an injection. The returned object is injected. This clause gives more expressive power, in case the former two \<what> clauses are not sufficient. An example: `... call somepackage.SomeFactory.get(MyConfig.isProduction()) ...`.
 
 Optionally, one can specify which Adapter class should be used when an injection takes place, with `using <adapter>`. The \<adapter> needs to be a fully qualified name of the Adapter class. Adding this to a association overrules the automatic Adapter resolution as described above. This is one way to resolve resolution conflicts.
 

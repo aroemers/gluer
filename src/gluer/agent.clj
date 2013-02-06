@@ -44,9 +44,9 @@
   [association what-code]
   (let [where-type (type-of-where (:where association))]
     (if-let [using (:using association)]
-      (format "gluer.Runtime.adapt(%1$s, Class.forName(\"%2$s\"), \"%3$s\")"
+      (format "(%2$s)gluer.Runtime.adapt(%1$s, Class.forName(\"%2$s\"), \"%3$s\")"
               what-code where-type (get-in using [:class :word]))
-      (format "gluer.Runtime.adapt(%1$s, Class.forName(\"%2$s\"))"
+      (format "(%2$s)gluer.Runtime.adapt(%1$s, Class.forName(\"%2$s\"))"
               what-code where-type))))
 
 (defn- inject-associations
@@ -70,6 +70,7 @@
       (inject-associations ctclass associations)
       (log-verbose "Done transforming class" 
         (str class-name ", will now be loaded in the JVM."))
+      ; (.debugWriteFile ctclass "/tmp")
       (.toBytecode ctclass))))
 
 
@@ -79,11 +80,12 @@
   "This reifies a ClassFileTransformer for use in the JVM class loading
   instrumentation. The returned instance uses the transform function for its
   functionallity."
-  [transformation-library]
+  [transformation-library verbose]
   (reify java.lang.instrument.ClassFileTransformer
     (transform [this loader class-name class-being-redefined protection-domain classfile-buffer]
       (try
-        (transform (s/replace class-name "/" ".") transformation-library)
+        (with-redefs [*verbose* verbose]
+          (transform (s/replace class-name "/" ".") transformation-library))
         (catch Throwable t (println "[ERROR]" t) (System/exit 1))))))
 
 (defn -premain
@@ -113,7 +115,7 @@
                   file-precedences (r/parsed-precedences parsed)
                   precedence-relations (r/build-precedence-relations file-precedences)
                   adapter-library (assoc (r/build-adapter-library) :precedence precedence-relations)
-                  transformer (transformer transformation-library)]
+                  transformer (transformer transformation-library *verbose*)]
               (log-verbose "Transformation library:" transformation-library)
               (log-verbose "Adapter library:" adapter-library)
               (runtime/initialise adapter-library)

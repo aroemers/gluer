@@ -123,7 +123,7 @@
         class-name (full-class-name (nth match 1) (nth match 2))]
     (if-let [ctclass (r/class-by-name class-name)]
       (check-expression word)
-      (format "Class %s in the `new' clause not found. Please check the name or classpath." 
+      (format "Class %s in the `call' clause not found. Please check the name or classpath." 
               class-name))))
 
 (defmethod type-of-what :what-clause-call
@@ -174,7 +174,7 @@
           nil) ;--- Check if field has init code or injection is overwritten in a constructor?
         (catch javassist.NotFoundException nfe
           (format "Class %s does not have a field named %s." class-name field-name)))
-      (format "Class %s cannot be found. Please check the name or classpath."))))
+      (format "Class %s cannot be found. Please check the name or classpath." class-name))))
 
 (defmethod check-overlap :where-clause-field
   [this that]
@@ -207,7 +207,6 @@
         method-code (format 
           (str "\nprivate void _inject_%1$s() {\n"
                "  if (! this._%1$s_injected) {\n"
-               "    System.out.println(\"<_inject_%1$s()> Initialising field: %1$s.\");\n"
                "    this.%1$s = %2$s;\n"
                "    this._%1$s_injected = true;\n"
                "  }\n"

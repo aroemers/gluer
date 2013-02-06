@@ -11,3 +11,8 @@
   :main               gluer.core
   :aot                [gluer.agent gluer.runtime]
   :manifest           {"Premain-Class" "gluer.GluerAgent"})
+
+;--- Update parser, to support spaces correctly (including implicit spaces)
+;--- Update precedence rules syntax to comma-separated
+;--- Update 'call' to 'retval'
+;--- Add complete constructor calls for 'new' and 'single'
