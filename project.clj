@@ -6,7 +6,8 @@
   :dependencies       [[org.clojure/clojure "1.4.0"]
                        [org.clojure/tools.cli "0.2.2"]
                        [org.javassist/javassist "3.16.1-GA"]
-                       [net.sf.scannotation/scannotation "1.0.2" :exclusions [javassist]]]
+                       [net.sf.scannotation/scannotation "1.0.2" :exclusions [javassist]]
+                       [crustimoney "0.1.0"]]
   :java-source-paths  ["src-java"]
   :main               gluer.core
   :aot                [gluer.agent gluer.runtime]

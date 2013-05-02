@@ -8,7 +8,3 @@ associate field test.Main.superSuperA with single test.modelb.SubSubB using test
 declare precedence test.adapter.TwiceBtoA1 over test.adapter.TwiceBtoA2
 
 declare precedence test.adapter.TwiceBtoA2 over test.adapter.TwiceBtoA3
-
-declare precedence test.adapter.TwiceBtoA3 over test.adapter.TwiceBtoA1
-
-associate field test.Main.twice with new test.modelb.TwiceB

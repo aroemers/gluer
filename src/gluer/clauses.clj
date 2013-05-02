@@ -11,14 +11,14 @@
 ;;;; a clause, one for determining the type of the clause and one for generating
 ;;;; or injecting code.
 ;;;;
-;;;; The multi-method selection is based on the node-types in the parsing 
-;;;; result. 
+;;;; The multi-method selection is based on the node-types in the parsing
+;;;; result.
 
 (ns gluer.clauses
   (:require [gluer.resources :as r])
   (:use     [gluer.logging])
   (:import  [java.io ByteArrayInputStream]
-            [javassist CtClass ClassPool CtField CtNewMethod]))
+            [javassist CtClass ClassPool CtField CtNewMethod Modifier]))
 
 ;;; The multi-methods to implement, for a <where> clause.
 
@@ -33,7 +33,7 @@
   (fn [this-association that-association] (ffirst (:where this-association))))
 
 (defmulti type-of-where
-  "Given a <where> clause, returns the fully qualified name of the (base) type 
+  "Given a <where> clause, returns the fully qualified name of the (base) type
   of the clause."
   (fn [where-clause] (ffirst where-clause)))
 
@@ -46,7 +46,7 @@
 (defmulti inject-where
   "Based on a where-clause and a class model (ctclass), inject the retrieval-code
   into the class. Since the ctclass is stateful, nothing needs to be returned."
-  (fn [where-clause ctclass retrieval-code] 
+  (fn [where-clause ctclass retrieval-code]
     (ffirst where-clause)))
 
 
@@ -70,7 +70,7 @@
 ;;; Helper functions.
 
 (defn- full-class-name
-  "Returns the fully qualified class name, based on a package name and class 
+  "Returns the fully qualified class name, based on a package name and class
   name. The package may be nil."
   [package class-name]
   (str package (when package ".") class-name))
@@ -113,8 +113,8 @@
       nil
       (catch javassist.CannotCompileException cce
         (subs (.getMessage cce) 15))
-      (finally 
-        (.detach ctclass) 
+      (finally
+        (.detach ctclass)
         (.defrost ctclass)))))
 
 (defmethod check-what :what-clause-call
@@ -123,7 +123,7 @@
         class-name (full-class-name (nth match 1) (nth match 2))]
     (if-let [ctclass (r/class-by-name class-name)]
       (check-expression word)
-      (format "Class %s in the `call' clause not found. Please check the name or classpath." 
+      (format "Class %s in the `call' clause not found. Please check the name or classpath."
               class-name))))
 
 (defmethod type-of-what :what-clause-call
@@ -133,7 +133,7 @@
         method-name (nth match 3)
         ctclass (r/class-by-name class-name)
         method (first (filter #(= (.getName %) method-name) (.getMethods ctclass)))]
-    (.getName (.getReturnType method)))) 
+    (.getName (.getReturnType method))))
 
 (defmethod generate-what :what-clause-call
   [association]
@@ -157,7 +157,7 @@
 
 (defmethod generate-what :what-clause-single
   [association]
-  (format "gluer.Runtime.single(\"%s\")" 
+  (format "gluer.Runtime.single(\"%s\")"
           (get-in association [:what :what-clause-single :class :word])))
 
 
@@ -170,8 +170,11 @@
         field-name (nth match 3)]
     (if-let [ctclass (r/class-by-name class-name)]
       (try
-        (let [field (.getDeclaredField ctclass field-name)]
-          nil) ;--- Check if field has init code or injection is overwritten in a constructor?
+        (let [field (.getDeclaredField ctclass field-name)
+              modifiers (.getModifiers field)]
+          (if (or (Modifier/isStatic modifiers) (Modifier/isFinal modifiers))
+            (format "Field %s.%s cannot be static or final." class-name field-name)
+            nil)) ;--- Check if field has init code or injection is overwritten in a constructor?
         (catch javassist.NotFoundException nfe
           (format "Class %s does not have a field named %s." class-name field-name)))
       (format "Class %s cannot be found. Please check the name or classpath." class-name))))
@@ -180,7 +183,7 @@
   [this that]
   (when-let [that-field (get-in that [:where :where-clause-field :field :word])]
     (let [this-field (get-in this [:where :where-clause-field :field :word])]
-      (when (= this-field that-field) 
+      (when (= this-field that-field)
         (format "The field '%s' has conflicting injections." this-field)))))
 
 (defmethod type-of-where :where-clause-field
@@ -204,7 +207,7 @@
         field-name (nth match 3)
         constructor-code (format "_inject_%1$s();" field-name)
         field-code (format "private boolean _%1$s_injected;" field-name)
-        method-code (format 
+        method-code (format
           (str "\nprivate void _inject_%1$s() {\n"
                "  if (! this._%1$s_injected) {\n"
                "    this.%1$s = %2$s;\n"
